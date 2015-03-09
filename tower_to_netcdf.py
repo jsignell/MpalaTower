@@ -1,24 +1,28 @@
-# -*- coding: utf-8 -*-
-# Convert Flux Tower Time Series data CSV file to NetCDF CF-1.6 timeSeries file
+#Script:tower_to_netcdf.py
+#       Converts tower timeseries data .dat file to daily raw NetCDF CF-1.6 
+#       timeSeries file. Then zips or copies the data to store on dropbox in 
+#       NETCDFPUB. The files have the format raw_MpalaTower_YYYY_MM_DD.nc
+#       and are stored according to their data file names. 
+#Modified by: Julia Signell
+#Date created: 2014-11-10
+#Date modified: 2015-02-10
 
-
-from netcdfSetup import * # this provides a handy spot to keep track of DIR names
 import numpy as np
 import pandas as pd
 import netCDF4
 import re
 import os
 import shutil
-import urllib
-import xray
-import zipfile
 import datetime as dt
+import zipfile
+import matplotlib.pyplot as plt
 
-ROOTDIR = "C:/Users/Julia/Dropbox (PE)/netcdfDevelopment/netcdf/"
-#DATALOC = "C:/Users/Julia/Dropbox (PE)/KenyaLab/Data/Tower/TowerData/"
-DATALOC = "C:/Users/Julia/Dropbox (PE)/KenyaLab/Data/Tower/TowerDataArchive/test/"
+usr = 'Julia'
+ROOTDIR = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/'%usr
+DATALOC = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/TowerData/'%usr
 TSLOC = DATALOC +'CR3000_SN4709_ts_data/'
-NETCDFLOC = "C:/Users/Julia/Dropbox (PE)/netcdfDevelopment/netcdf/output/"
+NETCDFLOC = 'C:/Users/%s/Dropbox (PE)/erddap/data/'%usr
+NETCDFPUB = DATALOC+'raw_netCDF_output/'
 
 station_name = 'MPALA Tower'
 lon = 36.9   # degrees east
@@ -28,8 +32,14 @@ timezone = +0300 #Africa/Nairobi
 # add highly recommended metadata from:
 # http://wiki.esipfed.org/index.php/Attribute_Convention_for_Data_Discovery_1-3#Highly_Recommended
 title = 'Flux Tower Data from MPALA'
-summary = 'This raw data comes from the MPALA Flux Tower, which is maintained by the Ecohydrology Lab at Mpala Research Centre in Laikipia, Kenya. It is part of a long-term monitoring project that was originally funded by NSF and now runs with support from Princeton. Its focus is on using stable isotopes to better understand water balance in drylands, particularly transpiration and evaporation fluxes.'
-license = 'MIT License'   # see choosealicense.com.   You can also make up your own and just say what the license is
+summary = ('This raw data comes from the MPALA Flux Tower, which is '+
+           'maintained by the Ecohydrology Lab at Mpala Research Centre in '+
+           'Laikipia, Kenya. It is part of a long-term monitoring project '+
+           'that was originally funded by NSF and now runs with support '+
+           'from Princeton. Its focus is on using stable isotopes to better '+
+           'understand water balance in drylands, particularly '+
+           'transpiration and evaporation fluxes.')
+license = 'MIT License'   
 institution = 'Princeton University'
 acknowledgement = 'Funded by NSF and Princeton University'
 naming_authority= 'caylor.princeton.edu'
@@ -38,48 +48,49 @@ creator_name = 'Kelly Caylor'
 creator_email = 'kcaylor@princeton.edu'
 keywords = ['eddy covariance','isotope hydrology', 'land surface flux']
 
-# metadata needed to be CF-1.6 compliant
 def createDF(input_file):  
-    df = pd.read_csv(input_file,skiprows=[0,2,3],parse_dates=True,index_col=0,low_memory=False)
-    
+    df_ = pd.read_csv(input_file,skiprows=[0,2,3],parse_dates=True,index_col=0,
+                      iterator=True,chunksize=100000,low_memory=False)
+    df = pd.concat(df_)
+        
     # group dataframe by day of the year
     DFList = []
     for group in df.groupby([df.index.year,df.index.month,df.index.day]):
         DFList.append(group[1])
-    return df, DFList
+    DFList = DFList[0:-1] #cut off last day as it is likely partial 
+    return DFList,df
 
-#create the output filenames
-def createmeta(df,DFList,input_file):
+def createmeta(DFList,df,input_file): # metadata needed to be CF-1.6 compliant
     ncfilename = []
     for i in range(len(DFList)):
         doy = DFList[i].index[0].dayofyear
         y = DFList[i].index[0].year
-        ncfilename.append('raw_MpalaTower_%i_%03d.nc' %(y,doy))
+        ncfilename.append('raw_MpalaTower_%i_%03d.nc' %(y,doy)) 
+        #create the output filenames
     
-    # in this CSV file, some metadata were written in the 1st row
+    # in the .dat datafiles, some metadata are written in the 1st row
     df_meta = pd.read_csv(input_file,nrows=1)
     meta=list(df_meta.columns.values)
     
     # use the 2nd item in list as instrument
     instrument = meta[1]
-    source = 'Flux tower sensor data %s_%s.dat, %s, %s' % (meta[1],meta[7],meta[5],meta[6])
+    source_info = (meta[1],meta[7],meta[5],meta[6])
+    source = 'Flux tower sensor data %s_%s.dat, %s, %s'%source_info
     
-    # in this CSV file, the units were written in the 3rd row
+    # in the .dat datafiles, the units are written in the 3rd row
     df_units = pd.read_csv(input_file,skiprows=[0,1],nrows=1)
     unit_names = list(df_units.columns.values)
     
-    # in this CSV file, the measurement types were written in the 4th row
+    # in the .dat datafiles, the measurement types are written in the 4th row
     df_types = pd.read_csv(input_file,skiprows=[0,1,2],nrows=1)
     type_names = list(df_types.columns.values)
-    
     return ncfilename,meta,instrument,source,unit_names,type_names
 
 def pd_to_secs(df):
-    """
-    convert a pandas datetime index to "seconds since 1970-01-01 00:00"
-    """
+    #convert a pandas datetime index to "seconds since 1970-01-01 00:00"
     import calendar
-    return np.asarray([ calendar.timegm(x.timetuple()) for x in df.index ], dtype=np.int64)
+    return np.asarray([calendar.timegm(x.timetuple()) for x in df.index],
+                       dtype=np.int64)
 
 def determineHeight(meta):
     if meta[7] == 'upper':
@@ -88,28 +99,34 @@ def determineHeight(meta):
         height = 0
     return height
     
-def createNC(NETCDFLOC,DFList,ncfilename,title,summary,license,institution,acknowledgement,naming_authority,
-            dset_id,creator_name,creator_email,meta,instrument,source,station_name,unit_names,type_names,lon,lat,
-            height):
-    i=0
+def createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
+             institution,acknowledgement,naming_authority,dset_id,creator_name,
+             creator_email,meta,instrument,source,station_name,unit_names,
+             type_names,lon,lat,height,old):
+    #this is the powerhouse function where the data in DFList moves to netCDF    
+    i = -1
     for df_day in DFList:
-        if ncfilename[i] in NETCDFLOC+meta[7]+'/': 
-            print 'check out %s' %ncfilename[i]
+        i += 1
+        if ncfilename[i] in os.listdir(NETCDFLOC+meta[7]+'/'): 
+            if old == True:
+                overlap = open(NETCDFLOC+'overlap_days.txt','a') 
+                overlap.write('check out %s --> %s\n'%(input_file,ncfilename[i]))
+                overlap.close()
             continue
-        else: pass
-        output_file = NETCDFLOC+meta[7]+'/'+ ncfilename[i]
-        print 'trying to write to %s' %output_file
-        i+=1
+        output_file = NETCDFLOC+meta[7]+'/'+ncfilename[i]
+        print 'trying to write to %s'%output_file
         ntime,ncols = np.shape(df_day)
+        
         #create NetCDF file
         nc = netCDF4.Dataset(output_file,mode='w',clobber=True)
+        
         # add some global attributes
-        nc.Conventions='CF-1.6'
-        nc.featureType='timeSeries'
-        nc.title=title
-        nc.summary=summary
-        nc.license=license
-        nc.institution=institution
+        nc.Conventions = 'CF-1.6'
+        nc.featureType = 'timeSeries'
+        nc.title = title
+        nc.summary = summary
+        nc.license = license
+        nc.institution = institution
         nc.acknowledgement = acknowledgement
         nc.naming_authority = naming_authority
         nc.id = dset_id 
@@ -117,17 +134,20 @@ def createNC(NETCDFLOC,DFList,ncfilename,title,summary,license,institution,ackno
         nc.creator_email = creator_email
         nc.instrument = instrument
         nc.source = source
+        
         #create time dimension
         nc.createDimension('time',ntime)    # create fixed time dimension
-        #nc.createDimension('time',None)     # create unlimited time dimension (for appending more data later)
+        
         # create dimension for station_name 
         nchar_max=len(station_name)
         nc.createDimension('name_strlen',nchar_max);
+        
         #Create time,lon,lat,altitude variables
         tvar = nc.createVariable('time','f8',dimensions=('time'))
         tvar.units='seconds since 1970-01-01 00:00 +03:00'
         tvar.standard_name='time'
         tvar.calendar='gregorian'
+        
         #create timeseries_id variable
         stavar = nc.createVariable('station_name','S1',dimensions=('name_strlen'))
         stavar.long_name = 'station name'
@@ -142,37 +162,39 @@ def createNC(NETCDFLOC,DFList,ncfilename,title,summary,license,institution,ackno
         evar.units = 'm'
         evar.standard_name = 'height'
         evar.positive = 'up'
-        evar.axis='Z'
+        evar.axis = 'Z'
+        
         #create variables from CSV file 
         var_names = list(df_day.columns.values)
-        var=[]
-        # the first 10 columns have time values, not data, so start in 11th column [10]
-        startcol=1
+        var = []
+        startcol = 1
         for var_name in var_names[startcol:]:
-            var_name = re.sub('[)()]', '_', var_name)    # netcdf doesn't like var names like "temp(17)", but "temp_17_" is okay.
-            var.append(nc.createVariable(var_name,'f4',dimensions=('time'),zlib=True, complevel=4))
-        #add attributes to variables from CSV file
+            var_name = re.sub('[)()]','_',var_name)    # netcdf doesn't like var names like "temp(17)", but "temp_17_" is okay.
+            var.append(nc.createVariable(var_name,'f4',dimensions=('time'),
+                                         zlib=True,complevel=4))
+        
+        #add attributes to variables from datafile
         k=startcol
         for v in var:
             v.units = (re.sub('[.]',':',unit_names[k])).split(':')[0]     # units like "deg C.17" or "deg C:17" should just be "deg C"
             v.comment = (re.sub('[.]',':',type_names[k])).split(':')[0]
             v.coordinates = 'time lon lat elevation'
-            v.content_coverage_type= 'physicalMeasurement'
+            v.content_coverage_type = 'physicalMeasurement'
             k+=1
         # write lon,lat, elevation and station id
-        lonvar[0]=lon
-        latvar[0]=lat
-        evar[0]=height
-        stavar[:]=netCDF4.stringtoarr(station_name,nchar_max)
+        lonvar[0] = lon
+        latvar[0] = lat
+        evar[0] = height
+        stavar[:] = netCDF4.stringtoarr(station_name,nchar_max)
         #write time values
-        tvar[:]=pd_to_secs(df_day)
-        #Write data from CSV to NetCDF
-        k=startcol
+        tvar[:] = pd_to_secs(df_day)
+        #Write data from datafile to NetCDF
+        k = startcol
         for v in var:
-            v[:]=df_day.iloc[:,k].values
-            k+=1
+            v[:] = df_day.iloc[:,k].values
+            k += 1
         nc.close()
-        print '%s finished processing' %ncfilename[i-1]
+        print '%s finished processing'%ncfilename[i-1]
 
 def checkmerge(NETCDFLOC):
     l = []
@@ -186,61 +208,138 @@ def checkmerge(NETCDFLOC):
     for element in set(list_elements):
         if list_elements.count(element)>=2:
             to_merge.append(element)
-            print element, 'occurs in', list_elements.count(element), 'out of 8 possible'
+            print (element,'occurs in',list_elements.count(element),
+                   'out of 8 possible')
     return to_merge
     
 def createSummaryTable(NETCDFLOC):
     l = []
     for i in os.walk(NETCDFLOC):
         l.append(i)
-    columns = l[0][1]
+    columns = ['fileName']+l[0][1]
     todays_date = dt.datetime.now().date()
-    first_date= dt.datetime(2010,01,01).date()
-    index = pd.date_range(start =first_date, end = todays_date, freq='D',tz = 'Africa/Nairobi')
-    df_ = pd.DataFrame(index=index, columns=columns)
-    df_ = df_.fillna(' ') # with 0s rather than NaNs
+    first_date = dt.datetime(2010,01,01).date()
+    index = pd.date_range(start=first_date,end=todays_date,
+                          name='date_time_localtz',freq='D')
+    df_ = pd.DataFrame(index=index,columns=columns)
     for day in range(len(df_.index)):
         doy = df_.index[day].timetuple().tm_yday
         y = df_.index[day].year
         filename = 'raw_MpalaTower_%d_%03d.nc'%(y,doy)
+        df_['fileName'][df_.index[day]]= filename
         for folder in l:
             if filename in folder[2]:
-                column = folder[0].partition('output/')[2]
-                df_[column][df_.index[day]]=True
-    df_.to_csv(NETCDFLOC+'SummaryTable.csv')
-    print 'Updated the Summary Table!'
+                column = folder[0].partition('data/')[2]
+                statinfo = os.stat(os.path.join(folder[0],filename))
+                file_size = statinfo.st_size/1024 
+                #so we can tell when a file is partial
+                df_[column][df_.index[day]]=file_size
+    df_.to_csv(NETCDFLOC+'DatafileAvailability.csv')
+    
+    #make a figure so that we can visually see data gaps
+    ax = df_.plot(logy=True,figsize=(16,8),linewidth=2.5,colormap='rainbow',
+                  title='Summary of Datafile Availability and Filesize')
+    ax.set_ylabel('Filesize [KB]')
+    plt.savefig(NETCDFLOC+'DatafileAvailability.jpg')
+    print 'Updated the Data Availability docs!' 
+    
+def zip_and_move(input_dir,output_dir):
+    for files in os.listdir(input_dir):
+        if '.' in files:
+            shutil.copy2(input_dir+files,output_dir+files)
+    l = []
+    for i in os.walk(input_dir):
+        l.append(i)
+    
+    folders = l[0][1]
+    for folder in folders:
+        src = input_dir+folder
+        dst = output_dir+folder
+        
+        # ts_data is not zipped because the compression is less than 20% 
+        # and it needs zip64
+        if 'ts_data' in folder: 
+            for filename in os.listdir(src): 
+                if filename not in os.listdir(dst):
+                    shutil.copy2(src+'/'+filename,dst+'/'+filename)
+        else: #pass
+            shutil.make_archive(dst,'zip',src) 
+            #this takes a while to run, but dropbox is smart enough to 
+            #know that it is an edit, so the upload time is minimal
+        print 'done zipping or copying %s'%folder
 
-def tsmain():
+def tsmain(TSLOC,NETCDFLOC,old=False):
+    print 'running tsmain with TSLOC = %s' %TSLOC
     df_header = pd.read_csv(TSLOC+'header.txt',skiprows=[0],nrows=1)
     header_names = list(df_header.columns.values)
     for day in os.listdir(TSLOC):
-        archive = zipfile.ZipFile(TSLOC+day, 'r')
-        input_file = archive.extract('share/'+ day.partition('.zip')[0], NETCDFLOC)
-        print '%s successfully unzipped!'%input_file
-        df = pd.read_csv(input_file,header = None, names= header_names, parse_dates=True,index_col=0,low_memory=False)
-        ncfilename,meta,instrument,source,unit_names,type_names = createmeta(df,[df],TSLOC+'header.txt')
-        createNC(NETCDFLOC, [df],ncfilename,title,summary,license,institution,acknowledgement,naming_authority,
-            dset_id,creator_name,creator_email,meta,instrument,source,station_name,unit_names,type_names,lon,lat,
-            height)
-        os.remove(input_file)
-    createSummaryTable(NETCDFLOC)
+        if '.dat' in day: pass
+        else: continue
+        if day not in open(TSLOC+'processed2netCDF.txt','r').read():
+            if 'zip' in day:
+                archive = zipfile.ZipFile(TSLOC+day,'r')
+                try:input_file = archive.extract('share/'+day.partition('.zip')[0],NETCDFLOC)
+                except:
+                    try: input_file = archive.extract('sn4709_ts_5_min_data/'+day.partition('.zip')[0],NETCDFLOC)
+                    except: input_file = archive.extract(day.partition('.dat.zip')[0]+'_0000.dat',NETCDFLOC+'share/')
+                print '%s successfully unzipped!'%input_file
+            else:
+                input_file = TSLOC+day
+            df_meta = pd.read_csv(input_file,nrows=1)
+            meta = list(df_meta.columns.values)
+            if meta[7] == 'ts_data':
+                DFList,df = createDF(input_file)
+            else:
+                df_ = pd.read_csv(input_file,iterator=True,skiprows=[0,1,2,3],
+                                  chunksize=10000,
+                                  header = None, names= header_names,
+                                  parse_dates=True,index_col=0,low_memory=False)
+                df = pd.concat(df_)
+                if old == True:
+                    DFList = []
+                    for group in df.groupby([df.index.year,df.index.month,df.index.day]):
+                        DFList.append(group[1])
+                else: DFList = [df]
+            meta_tup = createmeta(DFList,df,TSLOC+'header.txt')
+            ncfilename,meta,instrument,source,unit_names,type_names = meta_tup
+            height = determineHeight(meta)
+            createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
+                     institution,acknowledgement,naming_authority,dset_id,creator_name,
+                     creator_email,meta,instrument,source,station_name,unit_names,
+                     type_names,lon,lat,height,old)
+            processed = open(TSLOC+'processed2netCDF.txt','a')
+            processed.write(day+'\n')
+            processed.close
     
-def fluxmain():
+def fluxmain(DATALOC,NETCDFLOC,old=False):
+    print 'running fluxmain with DATALOC = %s' %DATALOC
     DATAFILERE = re.compile('^CR\d{4}_SN\d+_(.*?)\.dat$')
     for f in os.listdir(DATALOC):
-        if DATAFILERE.match(f):pass
+        if DATAFILERE.match(f):
+            print f
+            pass
         else:continue
         input_file = DATALOC+f
-        df, DFList = createDF(input_file)
-        ncfilename,meta,instrument,source,unit_names,type_names = createmeta(df,DFList,input_file)
+        DFList,df = createDF(input_file)
+        meta_tup = createmeta(DFList,df,input_file)
+        ncfilename,meta,instrument,source,unit_names,type_names = meta_tup
         height = determineHeight(meta)
-        createNC(NETCDFLOC, DFList,ncfilename,title,summary,license,institution,acknowledgement,naming_authority,
-            dset_id,creator_name,creator_email,meta,instrument,source,station_name,unit_names,type_names,lon,lat,
-            height)
-        shutil.move(DATALOC+f, DATALOC.partition('test/')[0]+'processed/'+f)   
-    createSummaryTable(NETCDFLOC)
-            
+        createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
+                 institution,acknowledgement,naming_authority,dset_id,creator_name,
+                 creator_email,meta,instrument,source,station_name,unit_names,
+                 type_names,lon,lat,height,old)
+        processed = open(DATALOC+'processed2netCDF.txt','a')
+        processed.write(f+'\n')
+        processed.close   
+                
 if __name__ =='__main__':
-    #tsmain()
-    fluxmain()
-    
+    #tsmain(ROOTDIR+'TowerDataArchive/towerraw/ts_data/',NETCDFLOC,archive=True)
+    tsmain(TSLOC,NETCDFLOC)
+    fluxmain(DATALOC,NETCDFLOC)
+    createSummaryTable(NETCDFLOC)
+    try: shutil.rmtree(NETCDFLOC+'share/')
+    except: pass
+    #zip_and_move(NETCDFLOC,NETCDFPUB)
+    print ('all done with the raw file production for today: %s!'%
+           dt.datetime.today())
+
