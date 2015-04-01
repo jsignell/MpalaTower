@@ -6,14 +6,11 @@ Created on Tue Mar 31 14:51:12 2015
 """
 from __future__ import print_function
 import pandas as pd
-import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
 import os
 import xray
 
-usr = 'Julia'
-NETCDFLOC = 'C:/Users/%s/Dropbox (PE)/erddap/data/'%usr
 
 # Enter start and end dates as ISO strings or leave blank to concatenate 
 # across all available time. data refers to the datafile name, choose from:
@@ -34,10 +31,9 @@ def grabDateRange(input_dir,data,start='2010-01-01',end=dt.datetime.now()):
     ds = xray.concat((ds_list[0:]),dim='time')
     return ds
     
-def process(): 
+def process(input_dir): 
     print('Which datafile do you want to look at (choose from list and use exact spelling)? ')
     data = str(raw_input('lws, licor, WVIA, ts_data, flux, upper, Manifold, Table1, Table1_rain\n'))
-    input_dir = NETCDFLOC
     print('If you don\'t want the full dataset, enter date range in format YYYY-MM-DD')
     start = str(raw_input('start: '))
     end = str(raw_input('end: '))
@@ -51,8 +47,6 @@ def clean_Table1(ds):
     L = [s for s in L if 'Avg' in s]
     for b in bad:
         L = [s for s in L if b not in s]
-    #L = [s.replace('Gass','Grass') for s in L]
-    #L = [s.replace('open','Open') for s in L]
     places = ['Tree','Grass','Riparian','Open']
     ps = [(0,0),(0,1),(1,0),(1,1)]
     depths = ['05cm','10cm','20cm','30cm','100cm']
@@ -77,7 +71,7 @@ def make_plots(input_dir,ds,start,end,places,ps,depths,colors,data,data_list):
         color = 'k'
         place = ''
         for place in places:
-            if place in i or place.lower() in i: 
+            if place in i: 
                 p = ps[places.index(place)]
                 axes[p].set_title(place)
         plt.sca(axes[p])
@@ -87,7 +81,7 @@ def make_plots(input_dir,ds,start,end,places,ps,depths,colors,data,data_list):
                 label = depth
         plt.plot(ds['time'],ds[i],color,label=label)
         if p == (0,1): 
-            plt.legend(bbox_to_anchor=(-.45, 1.2, 1., 0.07), loc=1, ncol=5, borderaxespad=0.)
+            plt.legend(bbox_to_anchor=(-.45, 1.2, 1., 0.07),loc=1,ncol=5,borderaxespad=0.)
     title = '%s from %s to %s'%(data,start,end)
     fig = fig.suptitle('\n'+title,fontsize=16,y=1.1)
     plt.savefig(input_dir+'plots/'+title+'.jpg', bbox_inches='tight')
