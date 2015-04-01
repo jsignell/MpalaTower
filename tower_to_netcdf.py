@@ -5,7 +5,7 @@
 #       and are stored according to their data file names. 
 #Modified by: Julia Signell
 #Date created: 2014-11-10
-#Date modified: 2015-02-10
+#Date modified: 2015-04-01
 
 import numpy as np
 import pandas as pd
@@ -19,18 +19,20 @@ import matplotlib.pyplot as plt
 
 usr = 'Julia'
 ROOTDIR = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/'%usr
+ARCHIVEDIR = 'E:/TowerDataArchive/test/'
 DATALOC = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/TowerData/'%usr
-TSLOC = DATALOC +'CR3000_SN4709_ts_data/'
-NETCDFLOC = 'C:/Users/%s/Dropbox (PE)/erddap/data/'%usr
+TSLOC = ARCHIVEDIR +'CR3000_SN4709_ts_data/'
+NETCDFLOC = DATALOC+'raw_netCDF_output/'
 NETCDFPUB = DATALOC+'raw_netCDF_output/'
 
 station_name = 'MPALA Tower'
 lon = 36.9   # degrees east
-lat = 0.5    # degrersityes north
+lat = 0.5    # degrees north
 timezone = +0300 #Africa/Nairobi
     
 # add highly recommended metadata from:
-# http://wiki.esipfed.org/index.php/Attribute_Convention_for_Data_Discovery_1-3#Highly_Recommended
+# http://wiki.esipfed.org/index.php/Attribute_Convention_for_Data_Discovery_1-3
+    
 title = 'Flux Tower Data from MPALA'
 summary = ('This raw data comes from the MPALA Flux Tower, which is '+
            'maintained by the Ecohydrology Lab at Mpala Research Centre in '+
@@ -144,7 +146,7 @@ def createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
         
         #Create time,lon,lat,altitude variables
         tvar = nc.createVariable('time','f8',dimensions=('time'))
-        tvar.units='seconds since 1970-01-01 00:00 +03:00'
+        tvar.units='seconds since 1970-01-01 00:00 -03:00'
         tvar.standard_name='time'
         tvar.calendar='gregorian'
         
@@ -169,14 +171,16 @@ def createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
         var = []
         startcol = 1
         for var_name in var_names[startcol:]:
-            var_name = re.sub('[)()]','_',var_name)    # netcdf doesn't like var names like "temp(17)", but "temp_17_" is okay.
+            var_name = re.sub('[)()]','_',var_name)    
+            # netcdf doesn't like var names like "temp(17)", but "temp_17_" is okay.
             var.append(nc.createVariable(var_name,'f4',dimensions=('time'),
                                          zlib=True,complevel=4))
         
         #add attributes to variables from datafile
         k=startcol
         for v in var:
-            v.units = (re.sub('[.]',':',unit_names[k])).split(':')[0]     # units like "deg C.17" or "deg C:17" should just be "deg C"
+            v.units = (re.sub('[.]',':',unit_names[k])).split(':')[0]     
+            # units like "deg C.17" or "deg C:17" should just be "deg C"
             v.comment = (re.sub('[.]',':',type_names[k])).split(':')[0]
             v.coordinates = 'time lon lat elevation'
             v.content_coverage_type = 'physicalMeasurement'
@@ -333,9 +337,9 @@ def fluxmain(DATALOC,NETCDFLOC,old=False):
         processed.close   
                 
 if __name__ =='__main__':
-    #tsmain(ROOTDIR+'TowerDataArchive/towerraw/ts_data/',NETCDFLOC,archive=True)
-    tsmain(TSLOC,NETCDFLOC)
-    fluxmain(DATALOC,NETCDFLOC)
+    #tsmain(ROOTDIR+'TowerDataArchive/towerraw/ts_data/',NETCDFLOC,archive=True)  
+    #tsmain(TSLOC,NETCDFLOC,old=True)
+    fluxmain(ARCHIVEDIR,NETCDFLOC,old=True)
     createSummaryTable(NETCDFLOC)
     try: shutil.rmtree(NETCDFLOC+'share/')
     except: pass
