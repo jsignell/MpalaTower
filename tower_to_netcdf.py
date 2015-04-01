@@ -51,11 +51,13 @@ creator_email = 'kcaylor@princeton.edu'
 keywords = ['eddy covariance','isotope hydrology', 'land surface flux']
 
 def createDF(input_file):  
-    df_ = pd.read_csv(input_file,skiprows=[0,2,3],parse_dates=True,index_col=0,
-                      iterator=True,chunksize=100000,low_memory=False)
+    df_ = pd.read_csv(input_file, skiprows=[0,2,3], parse_dates=True, index_col=0, 
+                      iterator=True, chunksize=100000, low_memory=False)
     df = pd.concat(df_)
-        
-    # group dataframe by day of the year
+    df = df.tz_localize('Africa/Nairobi')      #explain the local timezone
+    df = df.tz_convert('UTC')                  #convert df to UTC
+    
+    # group dataframe by day of the year in UTC
     DFList = []
     for group in df.groupby([df.index.year,df.index.month,df.index.day]):
         DFList.append(group[1])
@@ -146,7 +148,7 @@ def createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
         
         #Create time,lon,lat,altitude variables
         tvar = nc.createVariable('time','f8',dimensions=('time'))
-        tvar.units='seconds since 1970-01-01 00:00 -03:00'
+        tvar.units='seconds since 1970-01-01 00:00'
         tvar.standard_name='time'
         tvar.calendar='gregorian'
         
@@ -299,6 +301,8 @@ def tsmain(TSLOC,NETCDFLOC,old=False):
                                   header = None, names= header_names,
                                   parse_dates=True,index_col=0,low_memory=False)
                 df = pd.concat(df_)
+                df = df.tz_localize('Africa/Nairobi')      #explain the local timezone
+                df = df.tz_convert('UTC')                  #convert df to UTC
                 if old == True:
                     DFList = []
                     for group in df.groupby([df.index.year,df.index.month,df.index.day]):
@@ -338,7 +342,7 @@ def fluxmain(DATALOC,NETCDFLOC,old=False):
                 
 if __name__ =='__main__':
     #tsmain(ROOTDIR+'TowerDataArchive/towerraw/ts_data/',NETCDFLOC,archive=True)  
-    #tsmain(TSLOC,NETCDFLOC,old=True)
+    tsmain(ARCHIVEDIR,NETCDFLOC,old=True)
     fluxmain(ARCHIVEDIR,NETCDFLOC,old=True)
     createSummaryTable(NETCDFLOC)
     try: shutil.rmtree(NETCDFLOC+'share/')
