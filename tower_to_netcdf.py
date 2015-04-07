@@ -5,7 +5,7 @@
 #       and are stored according to their data file names. 
 #Modified by: Julia Signell
 #Date created: 2014-11-10
-#Date modified: 2015-04-01
+#Date modified: 2015-04-07
 
 import numpy as np
 import pandas as pd
@@ -19,9 +19,11 @@ import matplotlib.pyplot as plt
 
 usr = 'Julia'
 ROOTDIR = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/'%usr
-ARCHIVEDIR = 'E:/TowerDataArchive/test/'
-DATALOC = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/TowerData/'%usr
-TSLOC = ARCHIVEDIR +'CR3000_SN4709_ts_data/'
+E = 'E:/'
+ARCHIVEDIR = E + 'TowerDataArchive/BigFiles/'
+DATALOC = ROOTDIR + 'TowerData/'
+TSLOC = DATALOC +'CR3000_SN4709_ts_data/'
+SPLITLOC = 'C:/cygwin/home/Julia/BigFiles/'
 NETCDFLOC = DATALOC+'raw_netCDF_output/'
 NETCDFPUB = DATALOC+'raw_netCDF_output/'
 
@@ -50,9 +52,15 @@ creator_name = 'Kelly Caylor'
 creator_email = 'kcaylor@princeton.edu'
 keywords = ['eddy covariance','isotope hydrology', 'land surface flux']
 
-def createDF(input_file):  
-    df_ = pd.read_csv(input_file, skiprows=[0,2,3], parse_dates=True, index_col=0, 
-                      iterator=True, chunksize=100000, low_memory=False)
+def createDF(input_file,header=None):  
+    if header == None:
+        df_ = pd.read_csv(input_file, skiprows=[0,2,3], parse_dates=True, 
+                          index_col=0, iterator=True, 
+                          chunksize=100000, low_memory=False)
+    else:
+        df_ = pd.read_csv(input_file, header = None, parse_dates=True, 
+                          index_col=0, iterator=True, names =header,
+                          chunksize=100000, low_memory=False)
     df = pd.concat(df_)
     df = df.tz_localize('Africa/Nairobi')      #explain the local timezone
     df = df.tz_convert('UTC')                  #convert df to UTC
@@ -62,9 +70,9 @@ def createDF(input_file):
     for group in df.groupby([df.index.year,df.index.month,df.index.day]):
         DFList.append(group[1])
     DFList = DFList[0:-1] #cut off last day as it is likely partial 
-    return DFList,df
+    return DFList
 
-def createmeta(DFList,df,input_file): # metadata needed to be CF-1.6 compliant
+def createmeta(DFList,input_file): # metadata needed to be CF-1.6 compliant
     ncfilename = []
     for i in range(len(DFList)):
         doy = DFList[i].index[0].dayofyear
@@ -118,7 +126,7 @@ def createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
                 overlap.close()
             continue
         output_file = NETCDFLOC+meta[7]+'/'+ncfilename[i]
-        print 'trying to write to %s'%output_file
+        print('trying to write to %s'%output_file)
         ntime,ncols = np.shape(df_day)
         
         #create NetCDF file
@@ -223,10 +231,10 @@ def createSummaryTable(NETCDFLOC):
     for i in os.walk(NETCDFLOC):
         l.append(i)
     columns = ['fileName']+l[0][1]
-    todays_date = dt.datetime.now().date()
+    todays_date = dt.datetime.utcnow().date()
     first_date = dt.datetime(2010,01,01).date()
     index = pd.date_range(start=first_date,end=todays_date,
-                          name='date_time_localtz',freq='D')
+                          name='date_time_UTC',freq='D')
     df_ = pd.DataFrame(index=index,columns=columns)
     for day in range(len(df_.index)):
         doy = df_.index[day].timetuple().tm_yday
@@ -235,7 +243,7 @@ def createSummaryTable(NETCDFLOC):
         df_['fileName'][df_.index[day]]= filename
         for folder in l:
             if filename in folder[2]:
-                column = folder[0].partition('data/')[2]
+                column = folder[0].partition('output/')[2]
                 statinfo = os.stat(os.path.join(folder[0],filename))
                 file_size = statinfo.st_size/1024 
                 #so we can tell when a file is partial
@@ -274,27 +282,43 @@ def zip_and_move(input_dir,output_dir):
             #know that it is an edit, so the upload time is minimal
         print 'done zipping or copying %s'%folder
 
+def process(DIR,input_file,DFList,f,header=None,old=False):
+    #runs all the easy parts of the functions
+    if header==None: 
+        header = input_file    
+    meta_tup = createmeta(DFList,header)
+    ncfilename,meta,instrument,source,unit_names,type_names = meta_tup
+    height = determineHeight(meta)
+    createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
+             institution,acknowledgement,naming_authority,dset_id,creator_name,
+             creator_email,meta,instrument,source,station_name,unit_names,
+             type_names,lon,lat,height,old=old)
+    processed = open(DIR+'processed2netCDF.txt','a')
+    processed.write(f+'\n')
+    processed.close
+    
+    
 def tsmain(TSLOC,NETCDFLOC,old=False):
     print 'running tsmain with TSLOC = %s' %TSLOC
     df_header = pd.read_csv(TSLOC+'header.txt',skiprows=[0],nrows=1)
     header_names = list(df_header.columns.values)
-    for day in os.listdir(TSLOC):
-        if '.dat' in day: pass
+    for f in os.listdir(TSLOC):
+        if '.dat' in f: pass
         else: continue
-        if day not in open(TSLOC+'processed2netCDF.txt','r').read():
-            if 'zip' in day:
-                archive = zipfile.ZipFile(TSLOC+day,'r')
-                try:input_file = archive.extract('share/'+day.partition('.zip')[0],NETCDFLOC)
+        if f not in open(TSLOC+'processed2netCDF.txt','r').read():
+            if 'zip' in f:
+                archive = zipfile.ZipFile(TSLOC+f,'r')
+                try:input_file = archive.extract('share/'+f.partition('.zip')[0],NETCDFLOC)
                 except:
-                    try: input_file = archive.extract('sn4709_ts_5_min_data/'+day.partition('.zip')[0],NETCDFLOC)
-                    except: input_file = archive.extract(day.partition('.dat.zip')[0]+'_0000.dat',NETCDFLOC+'share/')
+                    try: input_file = archive.extract('sn4709_ts_5_min_data/'+f.partition('.zip')[0],NETCDFLOC)
+                    except: input_file = archive.extract(f.partition('.dat.zip')[0]+'_0000.dat',NETCDFLOC+'share/')
                 print '%s successfully unzipped!'%input_file
             else:
-                input_file = TSLOC+day
+                input_file = TSLOC+f
             df_meta = pd.read_csv(input_file,nrows=1)
             meta = list(df_meta.columns.values)
             if meta[7] == 'ts_data':
-                DFList,df = createDF(input_file)
+                DFList = createDF(input_file)
             else:
                 df_ = pd.read_csv(input_file,iterator=True,skiprows=[0,1,2,3],
                                   chunksize=10000,
@@ -308,16 +332,17 @@ def tsmain(TSLOC,NETCDFLOC,old=False):
                     for group in df.groupby([df.index.year,df.index.month,df.index.day]):
                         DFList.append(group[1])
                 else: DFList = [df]
-            meta_tup = createmeta(DFList,df,TSLOC+'header.txt')
+            process(TSLOC,input_file,DFList,f,header = TSLOC+'header.txt')
+            '''meta_tup = createmeta(DFList,df,TSLOC+'header.txt')
             ncfilename,meta,instrument,source,unit_names,type_names = meta_tup
             height = determineHeight(meta)
             createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
                      institution,acknowledgement,naming_authority,dset_id,creator_name,
                      creator_email,meta,instrument,source,station_name,unit_names,
-                     type_names,lon,lat,height,old)
+                     type_names,lon,lat,height)
             processed = open(TSLOC+'processed2netCDF.txt','a')
             processed.write(day+'\n')
-            processed.close
+            processed.close'''
     
 def fluxmain(DATALOC,NETCDFLOC,old=False):
     print 'running fluxmain with DATALOC = %s' %DATALOC
@@ -328,25 +353,46 @@ def fluxmain(DATALOC,NETCDFLOC,old=False):
             pass
         else:continue
         input_file = DATALOC+f
-        DFList,df = createDF(input_file)
-        meta_tup = createmeta(DFList,df,input_file)
+        DFList = createDF(input_file)
+        process(DATALOC,input_file,DFList,f)
+        '''meta_tup = createmeta(DFList,df,input_file)
         ncfilename,meta,instrument,source,unit_names,type_names = meta_tup
         height = determineHeight(meta)
         createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
                  institution,acknowledgement,naming_authority,dset_id,creator_name,
                  creator_email,meta,instrument,source,station_name,unit_names,
-                 type_names,lon,lat,height,old)
+                 type_names,lon,lat,height)
         processed = open(DATALOC+'processed2netCDF.txt','a')
         processed.write(f+'\n')
-        processed.close   
+        processed.close  '''
+
+def splitmain(SPLITLOC,NETCDFLOC,old=True):
+    for f in os.listdir(SPLITLOC):
+        if 'split' in f:
+            n = f.split('_')
+            name = n[1]+'_'+n[2]+'_'+n[3]+'_'+n[4]
+            num = n[5]
+            pass
+        else: continue
+        input_file = SPLITLOC + f
+        if num == '00':
+            DFList = createDF(input_file)
+            header_file = input_file
+        else:
+            header_file = SPLITLOC+'header_%s.txt'%name
+            df_header = pd.read_csv(header_file,skiprows=[0],nrows=1)
+            header = list(df_header.columns.values)
+            DFList = createDF(input_file, header=header)
+        process(DATALOC,input_file,DFList,f,header=header_file,old=True)   
                 
 if __name__ =='__main__':
     #tsmain(ROOTDIR+'TowerDataArchive/towerraw/ts_data/',NETCDFLOC,archive=True)  
-    tsmain(ARCHIVEDIR,NETCDFLOC,old=True)
-    fluxmain(ARCHIVEDIR,NETCDFLOC,old=True)
-    createSummaryTable(NETCDFLOC)
+    #tsmain(TSLOC,NETCDFLOC)
+    #fluxmain(ARCHIVEDIR,NETCDFLOC,old=True)
+    splitmain(SPLITLOC,NETCDFLOC)
     try: shutil.rmtree(NETCDFLOC+'share/')
     except: pass
+    createSummaryTable(NETCDFLOC)
     #zip_and_move(NETCDFLOC,NETCDFPUB)
     print ('all done with the raw file production for today: %s!'%
            dt.datetime.today())
