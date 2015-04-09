@@ -17,3 +17,9 @@ The output will be files named split_WVIA_2014_05_27_00
 							   ...
 			
 These will not exceed 300MB in size.
+
+To move the top 3000 lines from ts_data_600 to ts_data_609 and delete line 3001:
+
+head -3000 ts_data_600 > ts_data_609 && sed -i '1,+3000d' ts_data_600
+
+don't try this one in python because all the nested quotes get messed up
