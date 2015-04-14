@@ -16,14 +16,13 @@ import shutil
 import datetime as dt
 import zipfile
 import matplotlib.pyplot as plt
+from posixpath import join
 
 usr = 'Julia'
 ROOTDIR = 'C:/Users/%s/Dropbox (PE)/KenyaLab/Data/Tower/'%usr
-E = 'E:/'
-ARCHIVEDIR = E + 'TowerDataArchive/BigFiles/'
+ARCHIVEDIR = ROOTDIR + 'TowerDataArchive/'
 DATALOC = ROOTDIR + 'TowerData/'
-TSLOC = E+'CR3000_SN4709_ts_data/'
-SPLITLOC = 'C:/cygwin/home/Julia/BigFiles/'
+TSLOC = DATALOC +'CR3000_SN4709_ts_data/'
 NETCDFLOC = DATALOC+'raw_netCDF_output/'
 NETCDFPUB = DATALOC+'raw_netCDF_output/'
 
@@ -92,7 +91,7 @@ def createmeta(DFList,header_file): # metadata needed to be CF-1.6 compliant
     source_info = (meta[1],meta[7],meta[5],meta[6])
     source = 'Flux tower sensor data %s_%s.dat, %s, %s'%source_info
     
-    # in the .dat datafiles, the units are written in the 3rd row
+    # in the .dat files, the units are written in the 3rd row
     df_units = pd.read_csv(header_file,skiprows=[0,1],nrows=1)
     unit_names = list(df_units.columns.values)
     
@@ -122,13 +121,13 @@ def createNC(NETCDFLOC,DFList,ncfilename,input_file,title,summary,license,
     i = -1
     for df_day in DFList:
         i += 1
-        if ncfilename[i] in os.listdir(NETCDFLOC+meta[7]+'/'): 
+        if ncfilename[i] in os.listdir(join(NETCDFLOC,meta[7])): 
             if old == True:
-                overlap = open(NETCDFLOC+'overlap_days.txt','a') 
+                overlap = open(join(NETCDFLOC,'overlap_days.txt'),'a') 
                 overlap.write('check out %s --> %s\n'%(input_file,ncfilename[i]))
                 overlap.close()
             continue
-        output_file = NETCDFLOC+meta[7]+'/'+ncfilename[i]
+        output_file = join(NETCDFLOC,meta[7],ncfilename[i])
         print('trying to write to %s'%output_file)
         ntime,ncols = np.shape(df_day)
         
@@ -251,13 +250,13 @@ def createSummaryTable(NETCDFLOC):
                 file_size = statinfo.st_size/1024 
                 #so we can tell when a file is partial
                 df_[column][df_.index[day]]=file_size
-    df_.to_csv(NETCDFLOC+'DatafileAvailability.csv')
+    df_.to_csv(join(NETCDFLOC,'DatafileAvailability.csv'))
     
     #make a figure so that we can visually see data gaps
     ax = df_.plot(logy=True,figsize=(16,8),linewidth=2.5,colormap='rainbow',
                   title='Summary of Datafile Availability and Filesize')
     ax.set_ylabel('Filesize [KB]')
-    plt.savefig(NETCDFLOC+'DatafileAvailability.jpg')
+    plt.savefig(join(NETCDFLOC,'DatafileAvailability.jpg'))
     print 'Updated the Data Availability docs!' 
     
 def zip_and_move(input_dir,output_dir):
@@ -265,22 +264,22 @@ def zip_and_move(input_dir,output_dir):
     #aren't going to call it anymore
     for files in os.listdir(input_dir):
         if '.' in files:
-            shutil.copy2(input_dir+files,output_dir+files)
+            shutil.copy2(join(input_dir,files),join(output_dir,files))
     l = []
     for i in os.walk(input_dir):
         l.append(i)
     
     folders = l[0][1]
     for folder in folders:
-        src = input_dir+folder
-        dst = output_dir+folder
+        src = join(input_dir,folder)
+        dst = join(output_dir,folder)
         
         # ts_data is not zipped because the compression is less than 20% 
         # and it needs zip64
         if 'ts_data' in folder: 
             for filename in os.listdir(src): 
                 if filename not in os.listdir(dst):
-                    shutil.copy2(src+'/'+filename,dst+'/'+filename)
+                    shutil.copy2(join(src,filename),join(dst,filename))
         else: #pass
             shutil.make_archive(dst,'zip',src) 
             #this takes a while to run, but dropbox is smart enough to 
@@ -298,7 +297,7 @@ def process(DIR,input_file,DFList,f,header_file=None,old=False):
              institution,acknowledgement,naming_authority,dset_id,creator_name,
              creator_email,meta,instrument,source,station_name,unit_names,
              type_names,lon,lat,height,old=old)
-    processed = open(DIR+'processed2netCDF.txt','a')
+    processed = open(join(DIR,'processed2netCDF.txt'),'a')
     processed.write(f+'\n')
     processed.close
  
@@ -310,7 +309,7 @@ def fluxmain(DATALOC,NETCDFLOC,old=False):
         if DATAFILERE.match(f):
             print(f)
         else: continue
-        input_file = DATALOC+f
+        input_file = join(DATALOC,f)
         DFList = createDF(input_file,old=old)
         process(DATALOC,input_file,DFList,f,old=old) 
 
@@ -325,28 +324,28 @@ def ts_run(TSLOC,input_file,header_file,old=False):
     
 def tsmain(TSLOC,NETCDFLOC,old=False):
     print 'running tsmain with TSLOC = %s'%TSLOC
-    header_file = TSLOC+'header.txt'
-    processed = open(TSLOC+'processed2netCDF.txt','r').read() 
+    header_file = join(TSLOC,'header.txt')
+    processed = open(join(TSLOC,'processed2netCDF.txt'),'r').read() 
     for f in [f for f in os.listdir(TSLOC) if f not in processed]:
         if '.dat' in f: pass
         else: continue
         if 'zip' in f:
-            archive = zipfile.ZipFile(TSLOC+f,'r')
-            try:input_file = archive.extract('share/'+f.partition('.zip')[0],NETCDFLOC)
+            archive = zipfile.ZipFile(join(TSLOC,f),'r')
+            try:input_file = archive.extract(join('share',f.partition('.zip')[0]),NETCDFLOC)
             except:
-                try: input_file = archive.extract('sn4709_ts_5_min_data/'+f.partition('.zip')[0],NETCDFLOC)
-                except: input_file = archive.extract(f.partition('.dat.zip')[0]+'_0000.dat',NETCDFLOC+'share/')
+                try: input_file = archive.extract(join('sn4709_ts_5_min_data',f.partition('.zip')[0]),NETCDFLOC)
+                except: input_file = archive.extract(f.partition('.dat.zip')[0]+'_0000.dat',join(NETCDFLOC,'share'))
             print '%s successfully unzipped!'%input_file
         else:
-            input_file = TSLOC+f
+            input_file = join(TSLOC,f)
         DFList = ts_run(TSLOC,input_file,header_file,old=old)
         process(TSLOC,input_file,DFList,f,header_file=header_file)   
                 
 if __name__ =='__main__':
     #run functions for processing data files  
-    fluxmain(DATALOC,NETCDFLOC,old=False)
+    #fluxmain(DATALOC,NETCDFLOC,old=False)
     tsmain(TSLOC,NETCDFLOC,old=False)    
-    try: shutil.rmtree(NETCDFLOC+'share/')
+    try: shutil.rmtree(join(NETCDFLOC,'share'))
     except: pass
     createSummaryTable(NETCDFLOC)
     #zip_and_move(NETCDFLOC,NETCDFPUB)
