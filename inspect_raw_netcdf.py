@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 31 14:51:12 2015
+# Script:inspect_raw_netcdf.py
+#        Contains functions for inspecting raw netcdf files. For now these
+#        functions are best called in the eponymous ipython notebook.
+# Modified by: Julia Signell
+# Date created: 2015-01-28
+# Date modified: 2015-04-13
 
-@author: Julia
-"""
 from __future__ import print_function
 import pandas as pd
 import datetime as dt
@@ -33,7 +34,7 @@ def grabDateRange(input_dir,data,start='2010-01-01',end=dt.datetime.now()):
     
 def process(input_dir): 
     print('Which datafile do you want to look at (choose from list and use exact spelling)? ')
-    data = str(raw_input('lws, licor, WVIA, ts_data, flux, upper, Manifold, Table1, Table1_rain\n'))
+    data = str(raw_input('lws, licor, WVIA, ts_data, flux, upper, Manifold, Table1, Table1Rain\n'))
     print('If you don\'t want the full dataset, enter date range in format YYYY-MM-DD')
     start = str(raw_input('start: '))
     end = str(raw_input('end: '))
