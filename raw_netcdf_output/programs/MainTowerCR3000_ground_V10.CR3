@@ -1,0 +1,710 @@
+'CR3000 Series Datalogger + AM16/32 Multiplexer (2)
+'Copyright (c) 2002, 2006 Campbell Scientific, Inc. All rights reserved.
+'CRBasic version 2.9'
+'*******************************************************************************************
+'                                                                                          '    
+'                                   *** Version Notes ***                                  '
+'                                                                                          '
+'*******************************************************************************************
+' Version Notes:
+' Version 1:
+'         2/06/2010 Created by KKC for use with a CR3000 and a single AM16/32B Multiplexer
+'
+'version 5 March/8/2010 modified by LW for use with a CR3000 and two AM16/32A and B  Multiplexer
+' April 13, 2010 1) change 4 to SHF_PROBE_COUNT, 2) change to time to get out SHF calibration
+'Version 6 April 19 2010 found two ports broken, change ports in the program
+'shf calibration is still off, change program for that too. 
+'July 19 2010 add probe info for Riparian zone
+'July 20 2010 changed program to fix ripararian zone 30cm and 100cm
+'version 8 July 7 2011; changed output interval to 10 minutes
+' version 10 27 October 2012 added batt volt to output table, changed interval to 10 min
+' ****************************************************
+' *                                                  *
+' *                   INTRODUCTION                   *
+' *                                                  *
+' ****************************************************
+
+'*** Unit Definitions ***
+
+'Units	Units
+'C		Celsius
+'degrees	degrees (angle)
+'g		grams
+'J		Joules
+'kg		kilograms
+'kPa		kilopascals
+'m		meters
+'mg		milligrams
+'mmol	millimoles
+'mol		moles
+'uSeconds	microseconds
+'mV		millivolts
+'s		seconds
+'umol	micromols
+'V		volts
+'W		Watts
+
+
+
+' *** CONTROLERS ***
+' The following controllers are used
+' CR3000        Campbell Scientific Datalogger (3000 series)
+
+' AM16/32A      AM16/32 Multiplexer (4x16 mode)
+' AM16/32B      AM16/32 Multiplexer (4x16 mode)
+
+' *** SENSORS ***
+' The following sensors are measured:
+' THERM108 Temperature Probe (8)
+'         Bare 10cm      Probe Label G
+'         Bare 20cm      Probe Label H
+'         Tree 10cm      Probe Label J
+'         Tree 20cm      Probe Label K
+'         Grass 10cm     Probe Label I
+'         Grass 20cm     Probe Label L
+'         Riparian 10cm  Probe Label Use TCAV with extension, not long enough, used extension
+'         Riparian 20cm  none
+
+' CS616 Soil Moisture Probe (20), the port 8H,8L are broken, so the whole block are moved to the end, end up looking like 23 probes
+'         Bare 5cm      Mpala Research Center Tower #6 (MRCT#6)
+'         Bare 10cm     MRCT#7
+'         Bare 20cm     MRCT#8
+'         Bare 30cm     MRCT#9
+'         Bare 100cm    MRCT#10
+'         Tree 5cm      MRCT#1
+'         Tree 10cm     MRCT#2
+'         Tree 20cm     MRCT#3
+'         Tree 30cm     MRCT#4
+'         Tree 100cm    MRCT#5
+'         Grass 5cm     MRCT#11
+'         Grass 10cm    MRCT#12
+'         Grass 20cm    MRCT#13
+'         Grass 30cm    MRCT#14
+'         Grass 100cm   MRCT#15
+'         Riparian 5cm   MRCT#16
+'         Riparian 10cm  MRCT#17
+'         Riparian 20cm  MRCT#18
+'         Riparian 30cm  MRCT#19
+'         Riparian 100cm MRCT#20
+  
+' TCAV		type E thermocouple averaging soil temperature probes (4 sensors)
+'        TCAV Tree    #1 tree
+'        TCAV Grass   87  (label is gone, needs to be replaced)
+'        TVAV open    #2 open
+'        TCAV Riparian # long one, with zip tie
+
+' Soil heat plate
+'        HFP01SC Tree  Labeled "M", S/N 1264, 60.1 CAL Value
+'        HFP01SC Grass Labeled "L", S/N 1262, 61.1 CAL Value
+'        HFP01SC Open Labeled "J", S/N 1267,  59.9 CAL Value
+'        HFP01SC Riparian - Label, S/N 1944 , 63.2 CAL Value 
+
+' *** UNITS ***
+' Units    Units
+' C		     Celsius
+' V		     Volts
+' uSec		 Milisecods
+
+' *** WIRING ***'
+'  -CR3000
+'    AM16/32B Multiplexer
+'      C2       AM16/32A RES (red)
+'      C1       AM16/32A CLK (black)
+'      GND      AM16/32A GND (green)
+'      12V      AM16/32A 12V (red)
+'      EX1      AM16/32A COM ODD H (black)
+'      1H       AM16/32A COM ODD L (red)
+'      1L       AM16/32A COM EVEN H (black)
+'      2H       AM16/32A COM EVEN L (red)
+'      GND      AM16/32A COM GND (green)
+'    AM16/32A Multiplexer
+'      C4       AM16/32B RES (red)
+'      C1       AM16/32B CLK (black)
+'      GND      AM16/32B GND (green)
+'      12V      AM16/32B 12V (red)
+'      C3       AM16/32B COM ODD H (black)
+'      2L       AM16/32B COM ODD L (red)
+'      3H       AM16/32B COM EVEN H (black)
+'      3L       AM16/32B COM EVEN L (red)
+'      GND      AM16/32B COM GND (green)
+'*** Wiring (wiring order) ***
+'ANALOG INPUT
+'
+'***************************************
+'    Soil heat flux plate              *
+'***************************************
+'      4H       HFP01SC M, S/N 1264, 60.1 - TREE signal (white)
+'      4L       HFP01SC M, S/N 1264, 60.1 - TREE  signal reference (green)
+'      GND      HFP01SC M, S/N 1264, 60.1 - TREE  shield (clear)
+'      5H       HFP01SC L, S/N 1262, 61.1 - GRASS signal (white)
+'      5L       HFP01SC L, S/N 1262, 61.1 - GRASS signal reference (green)
+'      GND      HFP01SC L, S/N 1262, 61.1 - GRASS shield (clear)
+'      6H       HFP01SC J, S/N 1267, 59.9 -OPEN signal (white)                          
+'      6L       HFP01SC J, S/N 1267, 59.9 -OPEN signal reference(green)                 
+'      GND      HFP01SC J, S/N 1267, 59.9 -OPEN shield (clear)
+'      7H       HFP01SC TBD RIPARIAN signal (white)                            - PLACEHOLDER
+'      7L       HFP01SC TBD RIPARIAN signal reference (green)                  - PLACEHOLDER
+'      GND      HFP01SC TBD RIPARIAN shield (clear)
+
+'      8H       HFP01SC M, S/N 1264 - TREE heater resistor signal (yellow)
+'      8L       HFP01SC L, S/N 1262 - GRASS heater resistor signal (yellow)
+'      9H       HFP01SC J, S/N 1267,- OPEN heater resistor signal (yellow)
+'      9L       HFP01SC TDB RIPARIAN heater resistor signal (yellow)
+'      GND	    HFP01SC M heater resistor signal reference (purple)
+'		            HFP01SC M heater shield (clear)
+'		            HFP01SC L heater resistor signal reference (purple)
+'		            HFP01SC L heater shield (clear)      LKJ
+'		            HFP01SC J heater resistor signal reference (purple)
+'		            HFP01SC J heater shield (clear)      
+'***************************************  
+' TCAV thermocouple Soil temp probes   *
+'***************************************
+'      10H		TCAV #1 TREE signal (purple)  
+'      10L		TCAV #1 TREE signal reference (red)
+'      gnd	TCAV #1 TREE shield (clear)
+'      11H		TCAV 87 GRASS signal (purple)  
+'      11L		TCAV 87 GRASS signal reference (red)
+'      gnd	TCAV 87 GRASS shield (clear)
+'      12H		TCAV #2 OPEN signal (purple)  
+'      12L		TCAV #2 OPEN signal reference (red)
+'      gnd	TCAV #2 OPEN shield (clear)
+'      13H		TCAV XX RIPARIAN signal (purple)      5cm                - long one
+'      13L		TCAV XX RIPARIAN signal reference (red)                
+'      gnd	TCAV XX RIPARIAN shield (clear)                       
+'      14H		TCAV XX RIPARIAN signal (purple)        10cm             
+'      14L		TCAV XX RIPARIAN signal reference (red)               - the one with extension
+'      gnd	TCAV XX RIPARIAN shield (clear)                       
+
+'********************************************************************************************************
+'POWER OUT
+'********************************************************************************************************
+'      12V       AM16/32B 12V (red)
+'      GND       AM16/32B GND (green)
+
+'***************************************
+'    Soil heat flux plate              *
+'***************************************
+'SW12V-1	 HFP01SC M heater (red)
+'          HFP01SC L heater (red)
+'          HFP01SC J heater (red)
+'          HFP01SC X heater (red) - PLACEHOLDER
+'G			   HFP01SC heater (M,L,J and X) reference (black)
+
+'***************************************
+'    Soil temp probes           *
+'***************************************
+'  -AM16/32B Multiplexer (4x16 mode)
+'    108 Temperature Probe  (J) tree 10 cm
+'      1H       THERM108 (Black)
+'      1L       THERM108 (red)
+'      GND      THERM108 (clear)
+'      GND      THERM108 (purple)
+'    108 Temperature Probe (K) tree 20 cm
+'      1H       THERM108 (Black)
+'      2H       THERM108 (red)
+'      GND      THERM108 (clear)
+'      GND      THERM108 (purple)
+'    108 Temperature Probe  (I) grass 10 cm
+'      1H       THERM108 (Black)
+'      2L       THERM108 (red)
+'      GND      THERM108 (clear)
+'      GND      THERM108 (purple)
+'    108 Temperature Probe (L) grass 20 cm
+'      3H       THERM108 (Black)
+'      3L       THERM108 (red)
+'      GND      THERM108 (clear)
+'      GND      THERM108 (purple)
+'    108 Temperature Probe (G) open 10 cm
+'      3H       THERM108 (Black)
+'      4H       THERM108 (red)
+'      GND      THERM108 (clear)
+'      GND      THERM108 (purple)
+'    108 Temperature Probe (H) open 20 cm
+'      3H       THERM108 (Black)
+'      4L       THERM108 (red)
+'      GND      THERM108(clear)
+'      GND      THERM108 (purple)
+
+
+
+'***************************************
+'   CS616 Soil Moisture Probes         *
+'***************************************
+'  -AM16/32A Multiplexer (4x16 mode)
+'  x  1H  MRCT#1, Tree 05cm  (orange)
+'  x  1L  MRCT#1             (green)
+'  x  GND MRCT#1             (clear)
+'  x  GND MRCT#1             (Black)
+'  x  12V MRCT#1             (Red)
+'  x  1H  MRCT#2, Tree 10cm  (orange)
+'  x  2H  MRCT#2             (green)
+'  x  GND MRCT#2             (clear)
+'  x  GND MRCT#2             (Black)
+'  x  12V MRCT#2             (Red)
+'  x  1H  MRCT#3, Tree 20cm  (orange)
+'  x  2L  MRCT#3             (green)
+'  x  GND MRCT#3             (clear)
+'  x  GND MRCT#3             (Black)
+'  x  12V MRCT#3             (Red)
+'  x  3H  MRCT#4, Tree 30cm  (orange)
+'  x  3L  MRCT#4             (green)
+'  x  GND MRCT#4             (clear)
+'  x  GND MRCT#4             (Black)
+'  x  12V MRCT#4             (Red)
+'  x  3H  MRCT#5, Tree 100cm  (orange)
+'  x  4H  MRCT#5             (green)
+'  x  GND MRCT#5             (clear)
+'  x  GND MRCT#5             (Black)
+'   x 12V MRCT#5             (Red)
+'  x  3H  MRCT#11, Grass 05cm  (orange)
+'  x  4L  MRCT#11             (green)
+'  x  GND MRCT#11             (clear)
+'  x  GND MRCT#11             (Black)
+'  x   12V MRCT#11             (Red)
+'  x  5H  MRCT#12, Grass 10cm  (orange)
+'  x  5L  MRCT#12             (green)
+'  x  GND MRCT#12             (clear)
+'  x  GND MRCT#12             (Black)
+'  x  12V MRCT#12             (Red)
+'  x  5H  MRCT#13, Grass 20cm  (orange)
+'  x  6H  MRCT#13             (green)
+'  x  GND MRCT#3             (clear)
+'  x  GND MRCT#13             (Black)
+'  x  12V MRCT#13             (Red)
+'  x  5H  MRCT#14, Grass 30cm  (orange)
+'  x  6L  MRCT#14             (green)
+'  x  GND MRCT#14             (clear)
+'  x  GND MRCT#14             (Black)
+'  x  12V MRCT#14             (Red)
+'  x  7H  MRCT#15, Grass 100cm (orange) moved
+'  x  7L  MRCT#15             (green)
+'  x  GND MRCT#15             (clear)
+'  x  GND MRCT#15             (Black)
+'  x  12V MRCT#15             (Red)
+'  x   7H  MRCT#6, Open 05cm (orange) moved, the green port is broken
+'  x   8H  MRCT#6             (green)
+'  x   GND MRCT#6             (clear)
+'  x   GND MRCT#6             (Black)
+'  x   12V MRCT#6             (Red)
+'  x   7H  MRCT#7, Open 10cm (orange) moved, the green port is broken
+'  x   8L  MRCT#7             (green)
+'  x   GND MRCT#7             (clear)
+'  x   GND MRCT#7             (Black)
+'  x   12V MRCT#7             (Red)
+'  x   9H  MRCT#8, Open 20cm (orange)
+'  x   9L  MRCT#8             (green)
+'  x   GND MRCT#8             (clear)
+'  x   GND MRCT#8             (Black)
+'  x   12V MRCT#8             (Red)
+'  x  9H  MRCT#9, Open 30cm (orange)
+'  x  10H  MRCT#9             (green)
+'  x  GND MRCT#9             (clear)
+'  x   GND MRCT#9             (Black)
+'  x   12V MRCT#9             (Red)
+'  x  9H  MRCT#10, Open 100cm (orange)
+'  x  10L  MRCT#10             (green)
+'  x  GND MRCT#10             (clear)
+'  x  GND MRCT#10             (Black)
+'  x  12V MRCT#10             (Red)
+'    11H  MRCT#16, Riparian 05cm (orange) - PLACEHOLDER
+'    11L  MRCT#16             (green)     - PLACEHOLDER
+'    GND MRCT#16             (clear)      - PLACEHOLDER
+'    GND MRCT#16             (Black)      - PLACEHOLDER
+'    12V MRCT#16             (Red)        - PLACEHOLDER
+'    11H  MRCT#17, Riparian 10cm (orange) - PLACEHOLDER
+'    12H  MRCT#17             (green)     - PLACEHOLDER
+'    GND MRCT#17             (clear)      - PLACEHOLDER
+'    GND MRCT#17            (Black)      - PLACEHOLDER
+'    12V MRCT#17             (Red)        - PLACEHOLDER
+'    11H  MRCT#18, Riparian 20cm (orange) - PLACEHOLDER
+'    12L  MRCT#18             (green)     - PLACEHOLDER
+'    GND MRCT#18             (clear)      - PLACEHOLDER
+'    GND MRCT#18             (Black)      - PLACEHOLDER
+'    12V MRCT#18             (Red)        - PLACEHOLDER
+'    13H  MRCT#19, Riparian 30cm (orange) - PLACEHOLDER
+'    13L  MRCT#19             (green)     - PLACEHOLDER
+'    GND MRCT#19             (clear)      - PLACEHOLDER
+'    GND MRCT#19             (Black)      - PLACEHOLDER
+'    12V MRCT#19            (Red)        - PLACEHOLDER
+'    13H  MRCT#20, Riparian 100cm (orange)- PLACEHOLDER
+'    14H  MRCT#20             (green)     - PLACEHOLDER
+'    GND MRCT#20             (clear)      - PLACEHOLDER
+'    GND MRCT#20             (Black)      - PLACEHOLDER
+'    12V MRCT#20             (Red)        - PLACEHOLDER
+'    13H  MRCT#XX,                (orange)- Either 13H or 14L port doesn't work
+'    14L  MRCT#XX                 (green)     - 
+
+'  x   15H  MRCT#6, Open 05cm (orange) 
+'  x   15L  MRCT#6             (green)
+'  x   GND MRCT#6             (clear)
+'  x   GND MRCT#6             (Black)
+'  x   12V MRCT#6             (Red)
+'  x   15H  MRCT#7, Open 10cm (orange) 
+'  x   16H  MRCT#7             (green)
+'  x   GND MRCT#7             (clear)
+'  x   GND MRCT#7             (Black)
+'  x   12V MRCT#7             (Red)
+'  x  15H  MRCT#15, Grass 100cm (orange) 
+'  x  16L  MRCT#15             (green)
+'  x  GND MRCT#15             (clear)
+'  x  GND MRCT#15             (Black)
+'  x  12V MRCT#15             (Red)
+
+' ****************************************************
+' *                                                  *
+' *                        PROGRAM                   *
+' *                                                  *
+' ****************************************************
+
+' *** CONSTANTS ***
+'Measurement Rate
+Const SCAN_INTERVAL = 60			'Scan interval, in seconds
+'Multiplexer Resource Port
+Const MULTIPLEX_A_PORT = 4
+Const MULTIPLEX_B_PORT = 2
+'Clock Port
+Const CLOCK_PORT_NUM = 1
+
+'Temperature Probe count
+Const TEMP_PROBE_COUNT = 6        '2 each in BARE/TREE/GRASS/RIPARIAN
+'Soil Moisture Probe count
+Const SM_PROBE_COUNT = 32       '5 each in BARE/TREE/GRASS/RIPARIAN+ plus an extra block of 3 and 13H
+'Number of Soil Heat Flux Plates 
+Const SHF_PROBE_COUNT = 4         '1 each in BARE/TREE/GRASS/RIPARIAN
+'Number of TCAV Soil Temperature Probes
+Const TCAV_PROBE_COUNT = 5        '1 each in BARE/TREE/GRASS/RIPARIAN+riparainze one 10cm
+
+Const OUTPUT_INTERVAL = 10		'output interval in minutes.
+Const CAL_INTERVAL = 1440			'HFP01SC insitu calibration interval (minutes).
+Const END_CAL = OUTPUT_INTERVAL-1	'End HFP01SC insitu calibration one minute before the next Output.
+
+' Calibration parameters for the Soil Heat Flux Plates:
+
+Const HFP01SC_CAL_1264 = 16.639			'Unique multiplier for HFP01SC #1 (1000/sensitivity).
+Const HFP01SC_CAL_1262 = 16.367			'Unique multiplier for HFP01SC #2 (1000/sensitivity).
+Const HFP01SC_CAL_1267 = 16.694			'Unique multiplier for HFP01SC #3 (1000/sensitivity).
+Const HFP01SC_CAL_1944 = 15.823			'Unique multiplier for HFP01SC #4 (1000/sensitivity). 
+'Loop Counters
+Dim LCount_1
+Dim LCount_2
+Dim i
+Dim j
+Dim k
+Dim l
+Dim panel_temp_raw
+
+' *** PUBLIC VARIABLES ***
+'Public InString As String * 1000
+Public BattV
+
+Public T108_C(TEMP_PROBE_COUNT)
+  Alias T108_C(1) = Tsoil10cmTree
+  Alias T108_C(2) = Tsoil20cmTree
+  Alias T108_C(3) = Tsoil10cmGrass
+  Alias T108_C(4) = Tsoil20cmGass
+  Alias T108_C(5) = Tsoil10cmOpen
+  Alias T108_C(6) = Tsoil20cmOpen
+'  Alias T108_C(7) = Tsoil10cmRiparian
+'  Alias T108_C(8) = Tsoil20cmRiparian
+
+Public VW_Mes_v0(SM_PROBE_COUNT)
+  Alias VW_Mes_v0(1) = VW005cmTree_v0
+  Alias VW_Mes_v0(2) = VW010cmTree_v0
+  Alias VW_Mes_v0(3) = VW020cmTree_v0
+  Alias VW_Mes_v0(4) = VW030cmTree_v0
+  Alias VW_Mes_v0(5) = VW100cmTree_v0
+  Alias VW_Mes_v0(6) = VW005cmGrass_v0
+  Alias VW_Mes_v0(7) = VW010cmGrass_v0
+  Alias VW_Mes_v0(8) = VW020cmGrass_v0
+  Alias VW_Mes_v0(9) = VW030cmGrass_v0
+  Alias VW_Mes_v0(10) = moved_VW100cmGrass_v0
+  Alias VW_Mes_v0(11) = broken_VW005cmopen_v0
+  Alias VW_Mes_v0(12) = broken_VW010cmopen_v0
+  Alias VW_Mes_v0(13) = VW020cmopen_v0
+  Alias VW_Mes_v0(14) = VW030cmopen_v0
+  Alias VW_Mes_v0(15) = VW100cmopen_v0
+  Alias VW_Mes_v0(16) = VW005cmRiparian_v0
+  Alias VW_Mes_v0(17) = VW010cmRiparian_v0
+  Alias VW_Mes_v0(18) = VW020cmRiparian_v0
+  Alias VW_Mes_v0(19) = badVW030cmRiparian_v0
+  Alias VW_Mes_v0(20) = badVW100cmRiparian_v0
+   
+  Alias VW_Mes_v0(22) = VW005cmopen_v0
+  Alias VW_Mes_v0(23) = VW010cmopen_v0
+  Alias VW_Mes_v0(24) = VW100cmGrass_v0
+  
+  Alias VW_Mes_v0(28) = VW030cmRiparian_v0
+  Alias VW_Mes_v0(29) = VW100cmRiparian_v0
+  
+
+  
+Public PA_Mes(SM_PROBE_COUNT)
+  Alias PA_Mes(1) = PA005cmTree
+  Alias PA_Mes(2) = PA010cmTree
+  Alias PA_Mes(3) = PA020cmTree
+  Alias PA_Mes(4) = PA030cmTree
+  Alias PA_Mes(5) = PA100cmTree
+  Alias PA_Mes(6) = PA005cmGrass
+  Alias PA_Mes(7) = PA010cmGrass
+  Alias PA_Mes(8) = PA020cmGrass
+  Alias PA_Mes(9) = PA030cmGrass
+  Alias PA_Mes(10) = moved_PA100cmGrass
+  Alias PA_Mes(11) = broken_PA005cmOpen
+  Alias PA_Mes(12) = broken_PA010cmOpen
+  Alias PA_Mes(13) = PA020cmOpen
+  Alias PA_Mes(14) = PA030cmOpen
+  Alias PA_Mes(15) = PA100cmOpen
+  Alias PA_Mes(16) = PA005cmRiparian
+  Alias PA_Mes(17) = PA010cmRiparian
+  Alias PA_Mes(18) = PA020cmRiparian
+  Alias PA_Mes(19) = badPA030cmRiparian
+  Alias PA_Mes(20) = badPA100cmRiparian 
+  
+  Alias PA_Mes(22) = PA005cmOpen
+  Alias PA_Mes(23) = PA010cmOpen
+  Alias PA_Mes(24) = PA100cmGrass
+  
+  Alias PA_Mes(28) = PA030cmRiparian
+  Alias PA_Mes(29) = PA100cmRiparian
+  
+Public rTime(9)                'declare as public and dimension rTime to 9
+Alias rTime(1) = Year          'assign the alias Year to rTime(1)
+Alias rTime(2) = Month         'assign the alias Month to rTime(2)
+Alias rTime(3) = DOM           'assign the alias Day to rTime(3)
+Alias rTime(4) = Hour          'assign the alias Hour to rTime(4)
+Alias rTime(5) = Minute        'assign the alias Minute to rTime(5)
+Alias rTime(6) = Second        'assign the alias Second to rTime(6)
+Alias rTime(7) = uSecond       'assign the alias uSecond to rTime(7)
+Alias rTime(8) = WeekDay       'assign the alias WeekDay to rTime(8)
+Alias rTime(9) = Day_of_Year   'assign the alias Day_of_Year to rTime(9)
+
+Units BattV=Volts
+Units T108_C=Deg C
+Units PA_Mes=uSec
+Units VW_Mes_v0=percent
+
+Public shf(SHF_PROBE_COUNT)        'Soil Heat Flux shf(1)=TREE, shf(2)=GRASS, shf(3)=OPEN, shf(4)=RIPARIAN 
+  Alias shf(1) = shfTree
+  Alias shf(2) = shfGrass
+  Alias shf(3) = shfOpen
+  Alias shf(4) = shfRiparian
+  
+Public shf_cal(SHF_PROBE_COUNT)    'Calibration coefficients for the Soil Heat Flux Plates (see above)
+  Alias shf_cal(1) = shf_calTree
+  Alias shf_cal(2) = shf_calGrass
+  Alias shf_cal(3) = shf_calOpen
+  Alias shf_cal(4) = shf_calRiparian
+  
+Public Tsoil(TCAV_PROBE_COUNT)      'Soil Temperature (TCAV) Tsoil(1)=TREE, Tsoil(2)=GRASS, Tsoil(3)=OPEN,Tsoil(4)=RIPARIAN
+  Alias Tsoil(1) = TsoilTree
+  Alias Tsoil(2) = TsoilGrass
+  Alias Tsoil(3) = TsoilOpen
+   Alias Tsoil(4) = TsoilRiparian
+   Alias Tsoil(5) = TsoilRiparian10cm
+   
+Public del_Tsoil(TCAV_PROBE_COUNT)  'Change in TCAV Soil Temp since last measurement (same as above)
+  Alias del_Tsoil(1) = del_TsoilTree
+  Alias del_Tsoil(2) = del_TsoilGrass
+  Alias del_Tsoil(3) = del_TsoilOpen
+  Alias del_Tsoil(4) = del_TsoilRiparian
+   Alias del_Tsoil(5) = del_TsoilRiparian10cm
+   
+Dim    prev_Tsoil(TCAV_PROBE_COUNT) 'Last time step's Tsoil values from TCAVs
+
+Units shf = W/m^2
+Units Tsoil = C
+Units del_Tsoil = C
+Units shf_cal = W/(m^2 mV)
+
+'Soil heat flux calibration variables.
+Dim shf_mV(SHF_PROBE_COUNT)
+Dim shf_mV_run(SHF_PROBE_COUNT)
+Dim shf_mV_0(SHF_PROBE_COUNT)
+Dim shf_mV_180(SHF_PROBE_COUNT)
+Dim shf_mV_end(SHF_PROBE_COUNT)
+Dim V_Rf(SHF_PROBE_COUNT)
+Dim V_Rf_run(SHF_PROBE_COUNT)
+Dim V_Rf_180(SHF_PROBE_COUNT)
+Dim shf_cal_on
+Dim sw12_state
+
+'*** Final Output Data Tables ***
+
+' Data table for info from all other Sensors
+DataTable(Table1,True,-1)
+  DataInterval(0,10,Min,10)
+  'CardOut (0,-1)
+  'Time Stamp
+  Minimum(1,BattV,FP2,False,False)
+  Sample( 1, Year, IEEE4 )         'place Year in VALUES table
+  Sample( 1, Month, IEEE4 )        'place Month in VALUES table
+  Sample( 1, DOM, IEEE4 )          'place Day in VALUES table
+  Sample( 1, Hour, IEEE4 )         'place Hour in VALUES table
+  Sample( 1, Minute, IEEE4 )       'place Minute in VALUES table
+  Sample( 1, Second, IEEE4 )       'place Second in VALUES table
+  Sample( 1, uSecond, IEEE4 )      'place uSecond in VALUES table
+  Sample( 1, WeekDay, IEEE4 )      'place WeekDay in VALUES table
+  Sample( 1, Day_of_Year, IEEE4 )  'place Day_of_Year in VALUES tabl
+
+  'Temp Probe Data
+  Average(TEMP_PROBE_COUNT,T108_C(1),FP2,False)
+  StdDev(TEMP_PROBE_COUNT,T108_C(1),FP2,False)
+
+  'SM Probe Data
+  Average(SM_PROBE_COUNT,VW_Mes_v0(1),FP2,False)
+  StdDev(SM_PROBE_COUNT,VW_Mes_v0(1),FP2,False)
+  Average(SM_PROBE_COUNT,PA_Mes(1),FP2,False)
+  StdDev(SM_PROBE_COUNT,PA_Mes(1),FP2,False)
+  
+  'Heat flux plate Data
+  Average (SHF_PROBE_COUNT,shf(1),IEEE4,shf_cal_on)
+  StdDev(SHF_PROBE_COUNT,shf(1),FP2,False)
+  Average (SHF_PROBE_COUNT,shf_cal(1),IEEE4,False)
+  StdDev(SHF_PROBE_COUNT,shf_cal(1),FP2,False)
+  Average (SHF_PROBE_COUNT,shf_mV(1), IEEE4, False)
+  StdDev(SHF_PROBE_COUNT,shf_mV(1),FP2,False)
+
+  'TCAV averaging probe Data
+  Average (TCAV_PROBE_COUNT,del_Tsoil(1),FP2,False)
+  StdDev(TCAV_PROBE_COUNT,del_Tsoil(1),FP2,False)
+  Average (TCAV_PROBE_COUNT,Tsoil(1),FP2,False)
+  StdDev(TCAV_PROBE_COUNT,Tsoil(1),FP2,False)
+ 
+EndTable
+
+'*** Subroutines ***
+'Hukseflux HFP01SC in situ calibration routine.
+Sub hfp01sc_cal
+  'Begin HFP01SC calibration one minute into very CAL_INTERVAL minutes.
+  If ( IfTime (1,CAL_INTERVAL,Min) ) Then
+    shf_cal_on = TRUE
+    'Move (shf_old(1),SHF_PROBE_COUNT,shf_cal(1),SHF_PROBE_COUNT)
+    Move (shf_mV_0(1),SHF_PROBE_COUNT,shf_mV_run(1),SHF_PROBE_COUNT) 
+    sw12_state = TRUE
+  EndIf
+
+  If ( IfTime (4,CAL_INTERVAL,Min) ) Then
+    Move (shf_mV_180(1),SHF_PROBE_COUNT,shf_mV_run(1),SHF_PROBE_COUNT)
+    Move (V_Rf_180(1),SHF_PROBE_COUNT,V_Rf_run(1),SHF_PROBE_COUNT)
+    sw12_state = FALSE
+  EndIf
+
+  'End HFP01SC calibration sequence.
+  If ( IfTime (END_CAL,CAL_INTERVAL,Min) ) Then
+    Move (shf_mV_end(1),SHF_PROBE_COUNT,shf_mV_run(1),SHF_PROBE_COUNT)
+    'Compute new HFP01SC calibration factors.
+    For j=1 To SHF_PROBE_COUNT
+      shf_cal(j) = V_Rf_180(j)*V_Rf_180(j)*128.7/ABS (((shf_mV_0(j)+shf_mV_end(j))/2)-shf_mV_180(j))
+      ' If new shf_cal is unreasonable (i.e. <10), then just put back in the original values.
+      ' if shf_cal(j) < 10 then shf_cal(j) = shf_old(j) 
+    Next j
+    
+    shf_cal_on = FALSE
+  EndIf
+EndSub
+
+'Main Program
+BeginProg
+  
+   'Set the previous soil temerature to NaN.
+  Move (prev_Tsoil,4,NaN,4)
+
+  'Load the HFP01SC factory calibration.
+  shf_cal(1) = HFP01SC_CAL_1264
+  shf_cal(2) = HFP01SC_CAL_1262
+  shf_cal(3) = HFP01SC_CAL_1267
+  shf_cal(4) = HFP01SC_CAL_1944
+  
+  Scan(SCAN_INTERVAL,Sec,1,0)
+    ' Save the current time
+    RealTime(rTime)
+    'Datalogger panel temperature.
+    PanelTemp (panel_temp_raw,250)
+    'Default Datalogger Battery Voltage measurement BattV
+    Battery(BattV)
+
+  'Measure the HFP01SC soil heat flux plates on DIFF 4 - DIFF 7 (4 Sensors).
+   VoltDiff (shf_mV(1),SHF_PROBE_COUNT,mV50C,4,TRUE,200,250,1,0) 'mV50C was used for CR5000
+   'VoltDiff (shf_mV(2),1,mV50C,4,TRUE,200,250,1,0) 'mV50C was used for CR5000
+   'VoltDiff (shf_mV(3),1,mV50C,5,TRUE,200,250,1,0) 'mV50C was used for CR5000
+
+    'Apply HFP01SC soil heat flux plate calibration.
+'    shf(1) = shf_mV(1)*shf_cal(1)
+'    shf(2) = shf_mV(2)*shf_cal(2)
+'    shf(3) = shf_mV(3)*shf_cal(3)
+    For i =1 To SHF_PROBE_COUNT
+		 shf(i) = shf_mV(i)*shf_cal(i)
+		Next
+
+    'Measure voltage across the heater (Rf_V) on SE 15-18 (DIFF 8H-9L).
+    VoltSe (V_Rf(1),SHF_PROBE_COUNT,mV5000C,15,TRUE,200,250,0.001,0)
+
+    'Maintain filtered values for calibration. 100 sample average
+    AvgRun (shf_mV_run(1),SHF_PROBE_COUNT,shf_mV(1),100)
+    AvgRun (V_Rf_run(1),SHF_PROBE_COUNT,V_Rf(1),100)
+
+    'Measure the TCAV soil thermocouples on DIFF 10-13
+    TCDiff (Tsoil(1),TCAV_PROBE_COUNT,mV20C,10,TypeE,panel_temp_raw,TRUE,200,250,1,0) 'mV20C was used for CR5000
+   
+    'Compute the change in soil temperature.
+    
+    For k = 1 To TCAV_PROBE_COUNT
+     del_Tsoil(k) = Tsoil(k)-prev_Tsoil(k)
+     prev_Tsoil(k) = Tsoil(k)
+    Next  
+    
+    Call hfp01sc_cal
+       
+			'Turn AM16/32B Multiplexer On
+			PortSet(MULTIPLEX_B_PORT,1)
+			'Standard delay
+      Delay(0,150,mSec)
+      LCount_1=1
+			SubScan(0,uSec,2)
+				'Switch to next AM416 Multiplexer channel
+				PulsePort(CLOCK_PORT_NUM,10000)
+				'108 Temperature Probe (4-wire) measurements T108_C() on the AM16/32 Multiplexer:Therm108(T108_C(LCount_1),3,1,1,0,_60Hz,1,0)
+        Therm108(T108_C(LCount_1),3,1,1,0,_60Hz,1,0)
+        LCount_1=LCount_1+3
+			NextSubScan
+		'Switch to next AM16/32 Multiplexer channel
+'		PulsePort(CLOCK_PORT_NUM,10000)
+'		'108 Temperature Probe (3-wire) measurements T108_C on the AM16/32 Multiplexer:
+'		Therm108(T108_C(7),2,1,1,0,_60Hz,1,0)
+		
+		'Turn AM16/32B Multiplexer Off
+    PortSet(MULTIPLEX_B_PORT,0)
+			
+			'Standard delay
+    Delay(0,150,mSec)
+
+    'Turn AM16/32A Multiplexer On
+    PortSet(MULTIPLEX_A_PORT,1)
+    'Standard delay
+    Delay(0,150,mSec)
+    LCount_2=1
+    SubScan(0,uSec,11)
+      'Switch to next AM16/32 Multiplexer channnel
+      PulsePort(CLOCK_PORT_NUM,10000)
+      'CS616 Water Content reflectometer measurments
+      CS616(PA_Mes(LCount_2),3,4,3,3,1,0)
+      LCount_2=LCount_2+3
+    NextSubScan
+    'Switch to next AM416 Multiplexer channel
+    'PulsePort(CLOCK_PORT_NUM,10000)
+		'CS616 Water Content Reflectometer measurements VW and PA_uS on the AM16/32 Multiplexer:
+		'CS616(PA_Mes(22),2,4,3,2,1,0)
+    'Calculate volumeteric soil water content with a temperature Correcion
+    For l = 1 To SM_PROBE_COUNT
+      'Equation from CRBasic Help file
+      VW_Mes_v0(l) = -0.0663+PA_Mes(l)*(-0.0063+PA_Mes(l)*0.0007)
+    Next l
+ PortSet(MULTIPLEX_A_PORT,0)
+ 
+    'Call Data Tables and Store Data
+    CallTable(Table1)
+  NextScan
+EndProg
+
+
+

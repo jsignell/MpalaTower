@@ -85,11 +85,11 @@ def createmeta(DFList, header_file):  # metadata needed to be CF-1.6 compliant
     df_meta = pd.read_csv(header_file, nrows=1)
     meta = list(df_meta.columns.values)
 
-    # use the 2nd item in list as logger
-    logger = meta[1]
+    # use the 2nd item in list as instrument
+    instrument = meta[1]
     program = meta[5]
     data = meta[7]
-    source_info = (logger, data, program, meta[6])
+    source_info = (instrument, data, program, meta[6])
     source = 'Flux tower sensor data %s_%s.dat, %s, %s' % source_info
 
     # in the .dat files, the units are written in the 3rd row
@@ -102,7 +102,7 @@ def createmeta(DFList, header_file):  # metadata needed to be CF-1.6 compliant
     # skip first value because that is the timestamp
     type_names = list(df_types.columns.values[1:])
 
-    meta_tup = (ncfilename, logger, program, data, source, unit_names,
+    meta_tup = (ncfilename, instrument, program, data, source, unit_names,
                 type_names)
     return meta_tup
 
@@ -125,7 +125,7 @@ def determineHeight(meta):
 def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
              old=False):
     # this is the powerhouse function where the data in DFList moves to netCDF
-    (ncfilename, logger, program, data, source, unit_names,
+    (ncfilename, instrument, program, data, source, unit_names,
      type_names) = meta_tup
     (station_name, lon, lat, title, summary, license, institution,
      acknowledgement, naming_autority, dset_id, creator_name,
@@ -155,7 +155,7 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
         nc.id = dset_id
         nc.creator_name = creator_name
         nc.creator_email = creator_email
-        nc.logger = logger
+        nc.instrument = instrument  # should we use logger instead?
         nc.source = source
 
         # create time dimension

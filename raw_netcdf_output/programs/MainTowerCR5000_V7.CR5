@@ -1,0 +1,987 @@
+'CR5000 Series Datalogger, SN 2446
+' Main Tower Flux Program (version 3)
+' From portable tower upper box, modified on Jan 25, 2010 for use for main tower, exluding CAST, LiCOR and WVIA
+' modified on March 10 2010 to fix the albedo unit and night albedo negative values
+' modfiied on April 26 2010 to add the RH sensor data in the tablecc
+'Version4 modified on 29 June 2011 to add a table that outputs 1 minute rainfall
+'modified on 29 June 2011 to add 4 leafwetness sensors (1 minute table)
+'Version5: modified on 7 July 2011; 10 minute table (instead of 30 minute); 1 min. table is now only leafwetness
+
+' The following sensors are measured:
+' (Parentheses indicate wire labels)
+'
+'HMP45C		temperature and relative humidity probe, SN E2210003
+'CNR1		kipp & zonen net radiometer, SN 080237
+'NR-LITE  Net Radiometer, SN 093315
+'HFP01SC	soil heat flux plate, SN 
+'Rain gauge SN 235986 TE525 MM-L 50' - Not Calibrated, so assume 0.1 mm/tip: (RAIN_CAL = 0.10) 
+
+
+'TCAV		type E thermocouple averaging soil temperature probes, SN  
+
+
+'MET034b	MetOne cup anemometer and wind vane, SN  
+'SI-111   Infrared Temperature sensor, SN 1996 (4.75m) facing hillslope, SN 1668 (8.20 m) facing riparian zone 16681H 
+'CS616    Water content reflectometer (volumetric soil moisture) (2 sensors)
+'         #1 SN is with blue cable tie
+'PAR SN Q41222
+
+' The site attendant must load in several constants and calibration values. Search
+' for the text string "unique" to find the locations where unique constants and
+' calibration values are entered.
+
+
+'*** Unit Definitions ***
+
+'Units	Units
+'C		Celsius
+'degrees	degrees (angle)
+'g		grams
+'J		Joules
+'kg		kilograms
+'kPa		kilopascals
+'m		meters
+'mg		milligrams
+'mmol	millimoles
+'mol		moles
+'uSeconds	microseconds
+'mV		millivolts
+'s		seconds
+'umol	micromols
+'V		volts
+'W		Watts
+
+
+'*** Wiring (wiring order) ***
+
+'ANALOG INPUT
+'
+'1H		SI-111 (1) Target Temperature signal (red)
+'1L		SI-111 (1) Target Temperature reference (black)
+'gnd	SI-111 (1) Target Temperature shield (clear)
+
+'2H		SI-111 (1) Sensor Body Temperature signal (green)
+'2L	  MET034b - wind dir. signal (green)	              (SE Channel 4)
+'gnd	SI-111 (1) Sensor Body Temperature reference (blue)
+'	  	MET034b - wind dir. reference (white)
+'  		MET034b - wind dir. shield (clear)
+
+'3H		HMP45C temperature signal (yellow)
+'3L		HMP45C signal reference (white)
+'gnd	HMP45C shield (clear)
+
+'4H		HMP45C relative humidity signal (blue)
+'4L		short jumper wire to 3L
+
+'5H   NR-LITE radiometer signal (white)
+'5L   NR-LITE radiometer signal (green)
+'gnd  NR-LITE radiometer sheild (clear)
+
+'7H		TCAV  signal (purple)
+'7L		TCAV  signal reference (red)
+'gnd	TCAV  shield (clear)
+
+'8H		Li190 (PAR) red
+'8L		Li190 (PAR) black
+'gnd	Li190 (PAR) clear
+
+'9H   CM3 UP - downwelling shortwave radiation signal (red)
+'9L   CM3 UP - downwelling shortwave radiation signal reference (blue)
+'gnd  CNR1 shield (clear)
+
+'10H  CM3 DOWN -  upwelling shortwave radiation signal (white)
+'10L  CM3 DOWN -  upwelling shortwave radiation signal reference (black)
+
+'11H  CG3 UP -  downwelling longwave radiation signal (gray)
+'11L  CG3 UP -  downwelling longwave radiation signal reference (yellow)
+
+'12H  CG3 DOWN -  upwelling longwave radiation signal (brown)
+'12L  CG3 DOWN -  upwelling longwave radiation signal reference (green)
+
+'13H  CNR1 Pt100 (yellow)
+'13L  CNR1 Pt100 (green)
+
+'14H  CMP3-1 red sigal + 
+'14L  CMP3-1 blue sigal -
+'gnd  CMP3-1 black ground
+
+'15H		HFP01SC #1 signal (white)
+'15L		HFP01SC #1 signal reference (green)
+'gnd	  HFP01SC #1 shield (clear)
+
+'16H  CMP3-2 red sigal + 
+'16L  CMP3-2 blue sigal -
+'gnd  CMP3-2 black ground  
+
+'17H		SI-111(2) Target Temperature signal (red)
+'17L		SI-111(2) Target Temperature reference (black)
+'gnd	SI-111(2) Target Temperature shield (clear)
+
+'18H		SI-111 (2) Sensor Body Temperature signal (green)
+'18L    LWS-L (1) leaf wetness sensor (red)
+'gnd	SI-111 (2) Sensor Body Temperature reference (blue)
+'gnd LWS-L (1) leaf wetness sensor ground (bare)
+
+
+'19H		HFP01SC #1 heater resistor signal (yellow)
+'19L	  LWS-L(2) leafwetness sensor (red)
+'20H		LWS-L(3) leaf wetness sensor (red)
+'20L	  LWS-L(4) leaf wetness sensor (red)
+
+'gnd	HFP01SC #1 heater resistor signal reference (purple)
+'		  HFP01SC #1 heater shield (clear)
+'gnd LWS(L)(2,3,4) (bare)
+
+'VOLTAGE EXCITATION CHANNELS
+'VX1			SI-111 Sensor Body Temperature excitation (white)
+'VX2			MET034b - wind dir. excitation (blue)
+'VX3	SI-111 (2) Sensor Body Temperature excitation (white)
+'VX4 LWS-L (1,2,3,4) leaf wetness sensor excitation (white)
+
+' Net Radiometer (CNR1)
+'IX1  CNR1 Pt100 (red)
+'IXR  CNR1 Pt100 (blue)
+
+
+'PULSE CHANNEL
+'P1			TE525 Signal (black)
+
+'gnd		TE525 Signal Return (white)
+'gnd		TE525 Shield (clear)
+
+'P2			MET034b - wind speed signal (red)
+'
+'gnd		Wind speed reference (black)
+
+
+'CONTROL PORT
+'C1		CS616 #1 power control (orange)
+'		  CS616 #2 power control (orange)
+'G		CS616 #1 shield (clear)
+'		  CS616 #2 shield (clear)
+
+
+'POWER OUT
+'12V		HMP45C power (red)
+'			  CS616 #1 power (red)
+'			  CS616 #2 power (red)
+'G			HMP45C power reference (black)
+'			  CS616 #1 signal reference (black)
+'			  CS616 #2 signal reference (black)
+'SW12V-1	 HFP01SC #1 heater (red)
+
+'G			   HFP01SC heater (#1-#4) reference (black)
+
+
+'POWER IN
+'12V		datalogger (red)
+'G		datalogger (black)
+
+
+'*** Wiring (Instrument order) ***
+
+'ANALOG INPUT
+'***SI-111 (1)Infred thermometer
+
+'1H		SI-111 Target Temperature signal (red)
+'1L		SI-111 Target Temperature reference (black)
+'gnd	SI-111 Target Temperature shield (clear)
+'2H		SI-111 Sensor Body Temperature signal (green)
+'gnd	SI-111 Sensor Body Temperature reference (blue)
+'VX1	SI-111 (IRR-P) Sensor Body Temperature excitation (white)
+
+'17H		SI-111(2) Target Temperature signal (red)
+'17L		SI-111(2) Target Temperature reference (black)
+'gnd	SI-111(2) Target Temperature shield (clear)
+'18H		SI-111 (2) Sensor Body Temperature signal (green)
+'gnd	SI-111 (2) Sensor Body Temperature reference (blue)
+'VX3	SI-111 (2) Sensor Body Temperature excitation (white)
+
+'***MET034b Wind speed and direction (non sonic)
+
+'2L	  MET034b - wind dir. signal (green)	              (SE Channel 4)
+'gnd 	MET034b - wind dir. reference (white)
+'gnd	MET034b - wind dir. shield (clear)
+'VX2	MET034b - wind dir. excitation (blue)
+
+'P2		MET034b - wind speed signal (red)
+'gnd	Wind speed reference (black)
+
+'***HMP45C Temperatature and RH
+
+'3H		HMP45C temperature signal (yellow)
+'3L		HMP45C signal reference (white)
+'gnd	HMP45C shield (clear)
+
+'4H		HMP45C relative humidity signal (blue)
+'4L		short jumper wire to 3L
+'12V	HMP45C power (red) POWER OUT
+'G		HMP45C power reference (black)POWER OUT
+
+'***NR-LITE Overall net radiation
+
+'5H   NR-LITE radiometer signal (white)
+'5L   NR-LITE radiometer signal (green)
+'gnd  NR-LITE radiometer sheild (clear)
+
+'***TCAV thermocouple Soil temp probes
+
+'7H		TCAV #1 signal (purple)  #1 is with blue tie
+'7L		TCAV #1 signal reference (red)
+'gnd	TCAV #1 shield (clear)
+
+'***Li190 (PAR) sensor
+
+'8H		Li190 (PAR) red
+'8L		Li190 (PAR) black
+'gnd	Li190 (PAR) clear
+
+
+'***CNR1 Net radiation with four components
+'No heater used, so two wires (black and white) are left open
+
+'9H   CM3 UP - downwelling shortwave radiation signal (red)
+'9L   CM3 UP - downwelling shortwave radiation signal reference (blue)
+'gnd  CNR1 shield (clear)
+
+'10H  CM3 DOWN -  upwelling shortwave radiation signal (white)
+'10L  CM3 DOWN -  upwelling shortwave radiation signal reference (black)
+
+'11H  CG3 UP -  downwelling longwave radiation signal (gray)
+'11L  CG3 UP -  downwelling longwave radiation signal reference (yellow)
+
+'12H  CG3 DOWN -  upwelling longwave radiation signal (brown)
+'12L  CG3 DOWN -  upwelling longwave radiation signal reference (green)
+
+'Note: This is the other cable with a blue cable tie
+'13H  CNR1 Pt100 (yellow)
+'13L  CNR1 Pt100 (green)
+'IX1  CNR1 Pt100 (red)
+'IXR  CNR1 Pt100 (blue)
+'gnd shield (clear)
+
+'***CMP3-1
+
+'14H  CMP3-1 red sigal + 
+'14L  CMP3-1 blue sigal -
+'gnd  CMP3-1 black ground
+
+
+'16H  CMP3-2 red sigal + 
+'16L  CMP3-2 blue sigal -
+'gnd  CMP3-2 black ground  
+
+'***HEP01SC Soil heat plates
+
+'15H		HFP01SC #1 signal (white)
+'15L		HFP01SC #1 signal reference (green)
+'gnd	  HFP01SC #1 shield (clear)
+
+'19H		HFP01SC #1 heater resistor signal (yellow) 
+
+'gnd	HFP01SC #1 heater resistor signal reference (purple)
+'		  HFP01SC #1 heater shield (clear)
+
+'SW12V-1	 HFP01SC #1 heater (red)POWER OUT
+
+'G			   HFP01SC heater (#1-#4) reference (black)POWER OUT
+
+'***LWS-L Leaf Wetness Sensors
+'18L  LWS-L #1 signal (red)
+'gnd  LWS-L #1 ground (bare)
+'VX4 LWS-L #1 excitation (white)
+
+'19L LWS-L #2 signal(red)
+'gnd LWS-L #2 ground (bare)
+'VX4 LWS-L #2 excitation (white)
+
+'20H LWS-L #3 signal (red)
+'gnd LWS-L #3 ground (bare)
+'VX4 LWS-L #3 excitation (white)
+
+'20L LWS-L #4 signal (red)
+'gnd LWS-L #4 ground (bare)
+'VX4 LWS-L #4 excitation (white)
+
+
+
+'POWER IN
+'12V		datalogger (red)
+'G		datalogger (black)
+
+
+PipeLineMode
+
+
+'*** Constants ***
+
+'Measurement Rate					'10 Hz		20 Hz
+Const SCAN_INTERVAL = 1000	'100 mSec	50 mSec
+
+'Output period
+
+Const OUTPUT_INTERVAL = 10	  	'output interval in minutes.
+Const SHORT_INTERVAL = 1  'output interval for leaf wetness sensors in minutes
+'Const NUM_DAY_CPU = 1			    'Number of days of data to store on the CPU.
+Const NUM_DAY_CPU = 7			    'Number of days of data to store on the CPU.
+
+Const CAL_INTERVAL = 1440			'HFP01SC insitu calibration interval (minutes).
+Const END_CAL = OUTPUT_INTERVAL-1	'End HFP01SC insitu calibration one minute before the next Output.
+Const SCAN_BUFFER_SIZE = 60*INT (1000/SCAN_INTERVAL)
+Const FLUX_SIZE_CPU = (NUM_DAY_CPU*1440)/OUTPUT_INTERVAL
+
+' Rainfall calibration - the default is 0.01, which means 1 tip is .01 mm of rainfall. 
+' However, this needs to be defined based on S/N of the gauge after calibration. For
+' now, we will use 0.01, but someone needs to calibrate the gauge, or switch it out for a 
+' calibrated gauge.
+Const RAIN_CAL = 0.10         'Unique multiplier for Rain Gauge (depends on S/N of gauge)
+
+Const HFP01SC_CAL_1 = 15			'Unique multiplier for HFP01SC #1 (1000/sensitivity).
+'Const HFP01SC_CAL_2 = 15			'Unique multiplier for HFP01SC #2 (1000/sensitivity).
+'Const HFP01SC_CAL_3 = 15			'Unique multiplier for HFP01SC #3 (1000/sensitivity).
+'Const HFP01SC_CAL_4 = 15			'Unique multiplier for HFP01SC #4 (1000/sensitivity).
+
+
+'CRBasic Unique Calibration Constants for IRR-P SI-111 SN1668
+Const mC0 = 1402620000
+Const mC1 = 8359430
+Const mC2 = 64671.6
+Const bC0 = -38590000
+Const bC1 = -965715
+Const bC2 = 36424.6
+
+' Constants for the Steinhart-hart calculation (taken from SI-111 CR10X Program)
+Const mSH = 24900
+Const b1SH = 1.0
+Const b2SH = 0.001
+Const c0SH = 0.001129
+Const c1SH = 0.234108
+Const c3SH = 87.7547
+
+'CRBasic Unique Calibration Constants for IRR-P SI-111 Sn 1996
+Const mC0_1 = 1460000000
+Const mC1_1 = 9230000
+Const mC2_1 = 49645.9
+Const bC0_1 = -16600000
+Const bC1_1 = -711000
+Const bC2_1 = 25997.5
+
+' Constants for the Steinhart-hart calculation (taken from SI-111 CR10X Program) This maynot be right l
+Const mSH_1 = 24900
+Const b1SH_1 = 1.0
+Const b2SH_1 = 0.001
+Const c0SH_1 = 0.001129
+Const c1SH_1 = 0.234108
+Const c3SH_1 = 87.7547
+
+
+'*** Variables ***
+
+
+'NR-LITE Radiometer Variables
+Public net_rad
+Units net_rad=W/meter^2
+
+'CNR1 Radiometer Variables
+Public CM3Up
+Public CM3Dn
+Public CG3Up
+Public CG3Dn
+Public CNR1TC
+Public CNR1TK
+Public NetRs
+Public NetRl
+Public Albedo
+Public UpTot
+Public DnTot
+Public NetTot
+Public CG3UpCo
+Public CG3DnCo
+Public NetTotCo
+Units CM3Up=W/meter^2
+Units CM3Dn=W/meter^2
+Units CG3Up=W/meter^2
+Units CG3Dn=W/meter^2
+Units CNR1TC=Deg C
+Units CNR1TK=K
+Units NetRs=W/meter^2
+Units NetRl=W/meter^2
+Units Albedo=none
+Units UpTot=W/meter^2
+Units DnTot=W/meter^2
+Units NetTot=W/meter^2
+Units CG3UpCo=W/meter^2
+Units CG3DnCo=W/meter^2
+
+'No delay meteorological variables.
+Public hmp(2)				'HMP45C temperature and relative humidity.
+Public e_hmp				'HMP45C vapor pressure.
+Dim h2o_hmp_mean			'Mean HMP45C vapor density.
+Dim rho_a_mean				'Mean air density.
+Public batt_volt			'Datalogger battery voltage.
+Alias hmp(1) = t_hmp
+Alias hmp(2) = rh_hmp
+Units t_hmp = C
+Units rh_hmp = percent
+Units e_hmp = kPa
+Units h2o_hmp_mean = g/m^3
+Units rho_a_mean = kg/m^3
+Units batt_volt = V
+
+'No delay energy balance sensor.
+Public hor_wind
+Public shf(4)
+Public Tsoil(2)
+Public del_Tsoil(2)
+Public shf_cal(4)
+Dim prev_Tsoil(2)
+Units shf = W/m^2
+Units Tsoil = C
+Units del_Tsoil = C
+Units shf_cal = W/(m^2 mV)
+
+'Soil heat flux calibration variables.
+Dim shf_mV(4)
+Dim shf_mV_run(4)
+Dim shf_mV_0(4)
+Dim shf_mV_180(4)
+Dim shf_mV_end(4)
+Dim V_Rf(4)
+Dim V_Rf_run(4)
+Dim V_Rf_180(4)
+Dim shf_cal_on
+Dim sw12_state
+Dim j	
+Dim panel_temp_raw
+'Dim scan_count As Long	
+
+'Additional Sensors
+Public SensorBodyTemp	   'SI-111 sensor body temperature in Celsius
+Dim ThP_mV_irr				   'SI-111 (was IRR-P before 2008) thermopile output
+Dim Therm_mV_irr         'SI-111 thermocouple output in half-bridge measurement
+Dim scaled_R_irr         'SI-111 scaled resistance from half-bridge thermocouple measurement
+Public TargetTemp				 'SI-111 target temperature in Celsius
+
+Public SensorBodyTemp_1	   'SI-111 (2) sensor body temperature in Celsius
+Dim ThP_mV_irr_1				   'SI-111 (2) (was IRR-P before 2008) thermopile output
+Dim Therm_mV_irr_1         'SI-111 (2) thermocouple output in half-bridge measurement
+Dim scaled_R_irr_1         'SI-111 (2) scaled resistance from half-bridge thermocouple measurement
+Public TargetTemp_1
+'SI-111 target temperature in Celsius
+
+Public rainfall	
+Units rainfall = mm	     'TE525 raingage
+Public wspeed_met				 'Wind speed from MET034b
+Public wdir_met		
+Units wspeed_met = m/s
+Units wdir_met = degrees			 'Wind direction from MET034b
+Units SensorBodyTemp = degC
+Units ThP_mV_irr = mV
+Units Therm_mV_irr = mV
+Units TargetTemp = degC
+Units SensorBodyTemp_1 = degC
+Units ThP_mV_irr_1 = mV
+Units Therm_mV_irr_1 = mV
+Units TargetTemp_1 = degC
+Dim Tsqr1, Tsqr2, m, b, TargetTemp_K, SensorBodyTemp_K
+Dim Tsqr1_1, Tsqr2_1, m_1, b_1, TargetTemp_K_1, SensorBodyTemp_K1
+
+'Units wnd_dir_compass = degrees
+'Units wnd_spd = m/s
+'Units rslt_wnd_spd = m/s
+'Units wnd_dir_csat3 = degrees
+'Units std_wnd_dir = degrees
+'Units t_hmp_mean = C
+'Units co2_mean = mg/m^3
+'Units press_mean = kPa
+'Units Ts_mean = C
+
+'Li190 PAR sensor
+Public PAR_Den
+Public PAR_Tot
+Units PAR_Den = umol/s/m2
+Units PAR_Tot = mmol/m2
+
+'CMP3
+Public Solar_Wm2
+Public Solar_MJ
+Units Solar_Wm2 = W/m2
+Units Solar_MJ = MJ/m2
+
+Public Solar_Wm2_1
+Public Solar_MJ_1
+Units Solar_Wm2_1 = W/m2
+Units Solar_MJ_1 = MJ/m2
+
+'leaf wetness sensor variables
+Public LWmV
+Public LWMDry
+Public LWMCon
+Public LWMWet
+Public LWmV_2
+Public LWMDry_2
+Public LWMCon_2
+Public LWMWet_2
+Public LWmV_3
+Public LWMDry_3
+Public LWMCon_3
+Public LWMWet_3
+Public LWmV_4
+Public LWMDry_4
+Public LWMCon_4
+Public LWMWet_4
+
+Units LWmV=mV
+Units LWMDry=s
+Units LWMCon=s
+Units LWMWet=s
+Units LWmV_2=mV
+Units LWMDry_2=s
+Units LWMCon_2=s
+Units LWMWet_2=s
+Units LWmV_3=mV
+Units LWMDry_3=s
+Units LWMCon_3=s
+Units LWMWet_3=s
+Units LWmV_4=mV
+Units LWMDry_4=s
+Units LWMCon_4=s
+Units LWMWet_4=s
+
+'Read computer time
+Public rTime(9)                'declare as public and dimension rTime to 9
+Alias rTime(1) = Year          'assign the alias Year to rTime(1)
+Alias rTime(2) = Month         'assign the alias Month to rTime(2)
+Alias rTime(3) = DOM           'assign the alias Day to rTime(3)
+Alias rTime(4) = Hour          'assign the alias Hour to rTime(4)
+Alias rTime(5) = Minute        'assign the alias Minute to rTime(5)
+Alias rTime(6) = Second        'assign the alias Second to rTime(6)
+Alias rTime(7) = uSecond       'assign the alias uSecond to rTime(7)
+Alias rTime(8) = WeekDay       'assign the alias WeekDay to rTime(8)
+Alias rTime(9) = Day_of_Year   'assign the alias Day_of_Year to rTime(9)
+
+
+
+'*** Final Output Data Tables ***
+
+
+
+
+'Online flux data.
+DataTable (upper,TRUE,FLUX_SIZE_CPU)
+  DataInterval (0,OUTPUT_INTERVAL,Min,10)
+  CardOut (0,-1)
+    
+  'Time Stamp
+  Sample( 1, Year, IEEE4 )         'place Year in VALUES table
+  Sample( 1, Month, IEEE4 )        'place Month in VALUES table
+  Sample( 1, DOM, IEEE4 )          'place Day in VALUES table
+  Sample( 1, Hour, IEEE4 )         'place Hour in VALUES table
+  Sample( 1, Minute, IEEE4 )       'place Minute in VALUES table
+  Sample( 1, Second, IEEE4 )       'place Second in VALUES table
+  Sample( 1, uSecond, IEEE4 )      'place uSecond in VALUES table
+  Sample( 1, WeekDay, IEEE4 )      'place WeekDay in VALUES table
+  Sample( 1, Day_of_Year, IEEE4 )  'place Day_of_Year in VALUES table  
+ 
+
+  'Datalogger Information
+  Average (1,panel_temp_raw,IEEE4,FALSE)
+  StdDev(1,panel_temp_raw,FP2,False)
+  Average (1,batt_volt,IEEE4,FALSE)
+  StdDev(1,batt_volt,FP2,False)
+
+  'CNR01 Data
+  Average(1,CM3Up,FP2,False)
+  StdDev(1,CM3Up,FP2,False)
+  Average(1,CM3Dn,FP2,False)
+  StdDev(1,CM3Dn,FP2,False)
+  Average(1,CG3Up,FP2,False)
+  StdDev(1,CG3Up,FP2,False)
+  Average(1,CG3Dn,FP2,False)
+  StdDev(1,CG3Dn,FP2,False)
+  Average(1,CNR1TC,FP2,False)
+  StdDev(1,CNR1TC,FP2,False)
+  Average(1,CNR1TK,FP2,False)
+  StdDev(1,CNR1TK,FP2,False)
+  Average(1,NetRs,FP2,False)
+  StdDev(1,NetRs,FP2,False)
+  Average(1,NetRl,FP2,False)
+  StdDev(1,NetRl,FP2,False)
+  Average(1,Albedo,FP2,False)
+  StdDev(1,Albedo,FP2,False)
+  Average(1,UpTot,FP2,False)
+  StdDev(1,UpTot,FP2,False)
+  Average(1,DnTot,FP2,False)
+  StdDev(1,DnTot,FP2,False)
+  Average(1,NetTot,FP2,False)
+  StdDev(1,NetTot,FP2,False)
+  Average(1,CG3UpCo,FP2,False)
+  StdDev(1,CG3UpCo,FP2,False)
+  Average(1,CG3DnCo,FP2,False)
+  StdDev(1,CG3DnCo,FP2,False)
+
+  'NR-LITE Data
+  Average(1,net_rad,FP2,False)
+  StdDev(1,net_rad,FP2,False)
+
+  'Heat flux plate Data
+  Average (1,shf,IEEE4,shf_cal_on)
+  StdDev(1,shf,FP2,False)
+  Average (1,shf_cal(1),IEEE4,False)
+  StdDev(1,shf_cal(1),FP2,False)
+
+  'TCAV averaging probe Data
+  Average (1,del_Tsoil,FP2,False)
+  StdDev(1,del_Tsoil,FP2,False)
+  Average (1,Tsoil,FP2,False)
+  StdDev(1,Tsoil,FP2,False)
+
+  'SI-111 IR Thermometer Data
+  Sample (1,SensorBodyTemp,FP2)
+  Sample (1,ThP_mV_irr,FP2)
+  Sample (1,TargetTemp,FP2)
+  Average (1,SensorBodyTemp,FP2, False)
+  StdDev(1,SensorBodyTemp,FP2,False)
+  Average (1,TargetTemp,FP2, False)
+  StdDev(1,TargetTemp,FP2,False)
+
+  'SI-111 (2) IR Thermometer Data
+  Sample (1,SensorBodyTemp_1,FP2)
+  Sample (1,ThP_mV_irr_1,FP2)
+  Sample (1,TargetTemp_1,FP2)
+ ' Average (1,SensorBodyTemp_1,FP2, False)
+  'StdDev(1,SensorBodyTemp_1,FP2,False)
+  Average (1,TargetTemp_1,FP2, False)
+  StdDev(1,TargetTemp_1,FP2,False)
+  
+  'Rain gauge Data
+  Totalize (1,rainfall,FP2,False)
+
+  'MET034B Wind Data
+  WindVector (1,wspeed_met,wdir_met,FP2,False,0,0,0)
+  
+  'LI190 PAR
+  Average (1, PAR_Den, FP2, False)
+  Totalize (1, PAR_Tot, IEEE4, False)
+  
+  'CMP3
+  Average (1, Solar_Wm2, FP2, False)
+  Totalize (1, Solar_MJ, IEEE4, False)
+  Average (1, Solar_Wm2_1, FP2, False)
+  Totalize (1, Solar_MJ_1, IEEE4, False)
+  
+  'HMP Data
+  Average(1,e_hmp,FP2,False)
+  StdDev(1,e_hmp,FP2,False)
+  Average(1,t_hmp,FP2,False)
+  StdDev(1,t_hmp,FP2,False)  
+  Average(1,rh_hmp,FP2,False)
+  StdDev(1,rh_hmp,FP2,False)
+  
+EndTable
+
+
+'1minute data (leaf wetness sensors)
+DataTable(lws,TRUE,-1)
+  DataInterval(0,SHORT_INTERVAL,Min,10)
+  CardOut(0,-1)
+  
+ 'Time Stamp
+  Sample( 1, Year, IEEE4 )         'place Year in VALUES table
+  Sample( 1, Month, IEEE4 )        'place Month in VALUES table
+  Sample( 1, DOM, IEEE4 )          'place Day in VALUES table
+  Sample( 1, Hour, IEEE4 )         'place Hour in VALUES table
+  Sample( 1, Minute, IEEE4 )       'place Minute in VALUES table
+  Sample( 1, Second, IEEE4 )       'place Second in VALUES table
+  Sample( 1, uSecond, IEEE4 )      'place uSecond in VALUES table
+  Sample( 1, WeekDay, IEEE4 )      'place WeekDay in VALUES table
+  Sample( 1, Day_of_Year, IEEE4 )  'place Day_of_Year in VALUES table  
+ 
+  
+  'leaf wetness sensor data
+  Average(1,LWmV,FP2,False)
+	Totalize(1,LWMDry,FP2,False)
+	Totalize(1,LWMCon,FP2,False)
+	Totalize(1,LWMWet,FP2,False)
+ 	Average(1,LWmV_2,FP2,False)
+	Totalize(1,LWMDry_2,FP2,False)
+	Totalize(1,LWMCon_2,FP2,False)
+	Totalize(1,LWMWet_2,FP2,False)
+	Average(1,LWmV_3,FP2,False)
+	Totalize(1,LWMDry_3,FP2,False)
+	Totalize(1,LWMCon_3,FP2,False)
+	Totalize(1,LWMWet_3,FP2,False)
+	Average(1,LWmV_4,FP2,False)
+	Totalize(1,LWMDry_4,FP2,False)
+	Totalize(1,LWMCon_4,FP2,False)
+	Totalize(1,LWMWet_4,FP2,False)
+EndTable
+
+'*** Subroutines ***
+'Hukseflux HFP01SC in situ calibration routine.
+Sub hfp01sc_cal
+  'Begin HFP01SC calibration one minute into very CAL_INTERVAL minutes.
+  If ( IfTime (1,CAL_INTERVAL,Min) ) Then
+    shf_cal_on = TRUE
+    Move (shf_mV_0(1),1,shf_mV_run(1),1)
+    sw12_state = TRUE
+  EndIf
+
+  If ( IfTime (1,CAL_INTERVAL,Min) ) Then
+    Move (shf_mV_180(1),1,shf_mV_run(1),1)
+    Move (V_Rf_180(1),1,V_Rf_run(1),1)
+    sw12_state = FALSE
+  EndIf
+
+  'End HFP01SC calibration sequence.
+  If ( IfTime (END_CAL,CAL_INTERVAL,Min) ) Then
+    Move (shf_mV_end(1),1,shf_mV_run(1),1)
+    'Compute new HFP01SC calibration factors.
+    For j=1 To 1
+      shf_cal(j) = V_Rf_180(j)*V_Rf_180(j)*128.7/ABS (((shf_mV_0(j)+shf_mV_end(j))/2)-shf_mV_180(j))
+    Next j
+    shf_cal_on = FALSE
+  EndIf
+EndSub
+
+
+
+'*** Program ***
+
+BeginProg
+  
+  'Set the previous soil temerature to NaN.
+  Move (prev_Tsoil,1,NaN,1)
+
+  'Load the HFP01SC factory calibration.
+  shf_cal(1) = HFP01SC_CAL_1
+'  shf_cal(2) = HFP01SC_CAL_2
+'  shf_cal(3) = HFP01SC_CAL_3
+'  shf_cal(4) = HFP01SC_CAL_4
+
+  Scan (SCAN_INTERVAL,mSec,SCAN_BUFFER_SIZE,0)
+    'Datalogger panel temperature.
+    PanelTemp (panel_temp_raw,250)
+
+    'Measure FW005 on DIFF 14.
+    'TCDiff (fw,1,mV20C,14,TypeE,panel_temp_raw,TRUE,200,250,1,0)
+
+    'Measure the HMP45C temperature and fraction humidity on DIFF 3.
+    'VoltDiff (t_hmp,2,mV1000,3,TRUE,200,250,0.1,0)
+
+    'Measure battery voltage.
+    Battery (batt_volt)
+
+    'Get the RealTime
+    RealTime( rTime )
+
+    'Find the engineering units for the HMP45C temperature and humidity.
+    't_hmp = t_hmp-40
+
+    'Find the HMP45C vapor pressure (kPa).
+   ' VaporPressure (e_hmp,t_hmp,rh_hmp)
+
+    'CNR1 Net Radiometer measurements CM3Up, CM3Dn, CG3Up, CG3Dn, CNR1TC, CNR1TK,
+    'NetRs, NetRl, Albedo, UpTot, DnTot, NetTot, CG3UpCo, and CG3DnCo:
+    'CNR1 Sensitivity 7.30 uV/m^2
+    'Measure SW up on DIFF 9.
+    VoltDiff (CM3Up,1,mV20C,9,True,0,_50Hz,136.99,0)
+    'Measure SW down on DIFF 10.
+    VoltDiff (CM3Dn,1,mV20C,10,True,200,250,136.9,0)
+    'Measure LW up on DIFF 11.
+    VoltDiff (CG3Up,1,mV20C,11,True,200,250,136.9,0)
+    'Measure LW down on DIFF 12.
+    VoltDiff (CG3Dn,1,mV20,12,True,0,_50Hz,136.9,0)
+    'Measure CNR01 Temperature on DIFF 13
+    Resistance (CNR1TC,1,mV200,13,Ix1,1,1675,True ,True,0,_50Hz,1.0,0)
+
+    'Measure NR-LITE Net Radiometer on DIFF 3
+    VoltDiff (net_rad,1,mV50,3,True,0,_50Hz, 63.29,0)
+
+    'Formulate the ratio Rs/R0
+    CNR1TC=CNR1TC/100
+    PRT(CNR1TC,1,CNR1TC,1,273.15)
+
+    'Compute Net short-wave radiation, Net long-wave radiation, Albedo and Net Radiation
+    CNR1TC=CNR1TC-273.15
+    CNR1TK=CNR1TC+273.15
+    NetRs=CM3Up-CM3Dn
+    NetRl=CG3Up-CG3Dn
+    'Albedo=CM3Dn/CM3Up
+    If CM3Up > 0 Then 
+    Albedo=CM3Dn/CM3Up
+    EndIf
+      
+    UpTot=CM3Up+CG3Up
+    DnTot=CM3Dn+CG3Dn
+    NetTot=UpTot-DnTot
+    
+    CG3UpCo=CG3Up+5.67*10^-8*CNR1TK^4
+    CG3DnCo=CG3Dn+5.67*10^-8*CNR1TK^4
+    NetTotCo = CM3Up + CG3UpCo - CM3Dn - CG3DnCo
+    'Measure the HFP01SC soil heat flux plates on DIFF 15 - DIFF 18 (4 Sensors).
+    VoltDiff (shf_mV(1),2`,mV50C,15,TRUE,200,250,1,0)
+
+    'Apply HFP01SC soil heat flux plate calibration.
+    shf(1) = shf_mV(1)*shf_cal(1)
+'    shf(2) = shf_mV(2)*shf_cal(2)
+'    shf(3) = shf_mV(3)*shf_cal(3)
+'    shf(4) = shf_mV(4)*shf_cal(4)
+
+    'Power the HFP01SC heaters on SW12V-1 (Port code 9).
+    'PortSet (9,sw12_1_state)
+
+    'Measure voltage across the heater (Rf_V) on SE 37-40 (DIFF 19H-20L).
+    VoltSe (V_Rf(1),1,mV5000,37,TRUE,200,250,0.001,0)
+
+    'Maintain filtered values for calibration. 100 sample average
+    AvgRun (shf_mV_run(1),1,shf_mV(1),100)
+    AvgRun (V_Rf_run(1),1,V_Rf(1),100)
+
+    'Measure the TCAV soil thermocouples on DIFF 7.
+    TCDiff (Tsoil,1,mV20C,7,TypeE,panel_temp_raw,TRUE,200,250,1,0)
+
+    'Measure SI-111 Infrared Temperature sensor
+    'Sensor Body temperatue measurement on SE 3 (DIFF 2H)
+    'cr5000 doesn't support Therm109, so we use Half bridges instead
+    BrHalf (Therm_mV_irr,1,mV5000,3,Vx1,1, 5000, 0,0,_50Hz,1.0,0)
+    ' Convert the thermistor voltage to scaled resistance
+    scaled_R_irr = LOG(((1/Therm_mV_irr)-b1SH)*mSH)*b2SH
+    ' Convert the scaled resistance to a temperature using the Steinhart-Hart equation
+    SensorBodyTemp_K = 1/(c0SH+c1SH*scaled_R_irr+c3SH*scaled_R_irr*scaled_R_irr*scaled_R_irr)
+    'Target temperature calculation using m and b
+    SensorBodyTemp = SensorBodyTemp_K-273.15
+
+    'Target temperature measurement from thermopile (mV) on DIFF 1.
+    VoltDiff (ThP_mV_irr,1,mV20C,1,True,0,_50Hz,1.0,0)
+    'Calculation of m(slope) and b(intercept) coefficients for target temperature
+    m = mC2*SensorBodyTemp*SensorBodyTemp+mC1*SensorBodyTemp+mC0
+    b = bC2*SensorBodyTemp*SensorBodyTemp+bC1*SensorBodyTemp+bC0
+    Tsqr1 = SensorBodyTemp_K*SensorBodyTemp_K*SensorBodyTemp_K*SensorBodyTemp_K+m*ThP_mV_irr+b
+    Tsqr2 = SQR (Tsqr1)
+    TargetTemp_K = SQR (Tsqr2)
+    TargetTemp = TargetTemp_K-273.15
+    
+' for the second S-111 infred tempeture sensor
+    BrHalf (Therm_mV_irr_1,1,mV5000,35,Vx3,1, 5000, 0,0,_50Hz,1.0,0)
+    ' Convert the thermistor voltage to scaled resistance
+    scaled_R_irr_1 = LOG(((1/Therm_mV_irr_1)-b1SH_1)*mSH_1)*b2SH_1
+    ' Convert the scaled resistance to a temperature using the Steinhart-Hart equation
+    SensorBodyTemp_K1 = 1/(c0SH_1+c1SH_1*scaled_R_irr_1+c3SH_1*scaled_R_irr_1*scaled_R_irr_1*scaled_R_irr_1)
+    'Target temperature calculation using m and b
+    SensorBodyTemp_1 = SensorBodyTemp_K1-273.15
+   
+
+    'Target temperature measurement from thermopile (mV) on DIFF 1.
+    VoltDiff (ThP_mV_irr_1,1,mV20C,17,True,0,_50Hz,1.0,0)
+    'Calculation of m(slope) and b(intercept) coefficients for target temperature
+    m_1 = mC2_1*SensorBodyTemp_1*SensorBodyTemp_1+mC1_1*SensorBodyTemp_1+mC0_1
+    b_1 = bC2_1*SensorBodyTemp_1*SensorBodyTemp_1+bC1_1*SensorBodyTemp_1+bC0_1
+    Tsqr1_1 = SensorBodyTemp_K1*SensorBodyTemp_K1*SensorBodyTemp_K1*SensorBodyTemp_K1+m_1*ThP_mV_irr_1+b_1
+    Tsqr2_1 = SQR (Tsqr1_1)
+    TargetTemp_K_1 = SQR (Tsqr2_1)
+    TargetTemp_1 = TargetTemp_K_1-273.15
+    
+     'Li190 (PAR) sensor
+        'Li190 Quantum sensor measurements PAR_Tot and PAR_Den
+    VoltDiff(PAR_Den,1,mV20C, 8, True, 0, _60Hz, 1,0)
+         'set negative values to zero
+    If PAR_Den < 0 Then PAR_Den=0
+    PAR_Tot = PAR_Den*2.56686 'multiplier will be different for each sensor and scan rate
+    PAR_Den = PAR_Den*256.686
+    
+
+     'CMP3 sensor
+       
+    VoltDiff(Solar_Wm2,1,mV50C, 14, True, 0, _60Hz, 66.577896,0)
+         'set negative values to zero
+    If Solar_Wm2 < 0 Then Solar_Wm2=0
+    Solar_MJ = Solar_Wm2*0.00001 
+    
+        VoltDiff(Solar_Wm2_1,1,mV50C, 16, True, 0, _60Hz, 66.577896,0)
+         'set negative values to zero
+    If Solar_Wm2_1 < 0 Then Solar_Wm2_1=0
+    Solar_MJ_1 = Solar_Wm2_1*0.00001 
+    
+    
+    'Measure TE525 Rain Gage
+    PulseCount (rainfall,1,1,2,0,RAIN_CAL,0) 'The rainfall data is converted in units with RAIN_CAL
+
+    'Measure  wind speed & direction:
+    PulseCount(wspeed_met,1,2,2,1,0.799,0.2811)
+    If wspeed_met=0.2811 Then wspeed_met=0
+    BrHalf(wdir_met,1,mV5000,4,Vx2,1,5000,True,0,_60Hz,712.0,0)  '5000mv for CR3000/5000; 2500mv for others
+    If wdir_met>=360 Then wdir_met=0
+
+
+        'Compute the change in soil temperature.
+        del_Tsoil(1) = Tsoil(1)-prev_Tsoil(1)
+        del_Tsoil(2) = Tsoil(2)-prev_Tsoil(2)
+        prev_Tsoil(1) = Tsoil(1)
+        prev_Tsoil(2) = Tsoil(2)
+    'Mesure leaf wetness
+    BrHalf(LWmV,1,mV5000,36,VX4,1,2500,False,10000,_60Hz,2500,0)
+      'Determine Seconds Dry (LWMDry), Minutes Wet or Contaminated (LWMCon), and Minutes Wet (LWMWet) for this Scan
+		LWMDry=0
+		LWMCon=0
+		LWMWet=0
+		If LWmV<274 Then
+			LWMDry=SCAN_INTERVAL/1000   'fraction of 1 second in each scan
+		Else
+			If LWmV>=284 Then
+				LWMWet=SCAN_INTERVAL/1000
+			Else
+				LWMCon=SCAN_INTERVAL/1000
+			EndIf
+		EndIf
+		
+	 BrHalf(LWmV_2,1,mV5000,38,VX4,1,2500,False,10000,_60Hz,2500,0)
+      'Determine Seconds Dry (LWMDry), Minutes Wet or Contaminated (LWMCon), and Minutes Wet (LWMWet) for this Scan
+		LWMDry_2=0
+		LWMCon_2=0
+		LWMWet_2=0
+		If LWmV_2<274 Then
+			LWMDry_2=SCAN_INTERVAL/1000   'fraction of 1 second in each scan
+		Else
+			If LWmV_2>=284 Then
+				LWMWet_2=SCAN_INTERVAL/1000
+			Else
+				LWMCon_2=SCAN_INTERVAL/1000
+			EndIf
+		EndIf
+	 BrHalf(LWmV_3,1,mV5000,39,VX4,1,2500,False,10000,_60Hz,2500,0)
+      'Determine Seconds Dry (LWMDry), Minutes Wet or Contaminated (LWMCon), and Minutes Wet (LWMWet) for this Scan
+		LWMDry_3=0
+		LWMCon_3=0
+		LWMWet_3=0
+		If LWmV_3<274 Then
+			LWMDry_3=SCAN_INTERVAL/1000   'fraction of 1 second in each scan
+		Else
+			If LWmV_3>=284 Then
+				LWMWet_3=SCAN_INTERVAL/1000
+			Else
+				LWMCon_3=SCAN_INTERVAL/1000
+			EndIf
+		EndIf
+	 BrHalf(LWmV_4,1,mV5000,40,VX4,1,2500,False,10000,_60Hz,2500,0)
+      'Determine Seconds Dry (LWMDry), Minutes Wet or Contaminated (LWMCon), and Minutes Wet (LWMWet) for this Scan
+		LWMDry_4=0
+		LWMCon_4=0
+		LWMWet_4=0
+		If LWmV_4<274 Then
+			LWMDry_4=SCAN_INTERVAL/1000   'fraction of 1 second in each scan
+		Else
+			If LWmV_4>=284 Then
+				LWMWet_4=SCAN_INTERVAL/1000
+			Else
+				LWMCon_4=SCAN_INTERVAL/1000
+			EndIf
+		EndIf
+      CallTable upper
+      CallTable lws
+ 
+
+    Call hfp01sc_cal
+  NextScan
+
+EndProg

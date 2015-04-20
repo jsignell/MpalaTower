@@ -1,0 +1,78 @@
+'CR1000 Series Datalogger
+' Measuring a 4 t105 temperature probe
+
+'Declare Public Variables
+'Example:
+Public PTemp, batt_volt
+
+Public rTime(9)
+Alias rTime(1) = Year
+Alias rTime(2) = Month 
+Alias rTime(3) = DOM
+Alias rTime(4) = Hour
+Alias rTime(5) = Minute
+Alias rTime(6) = Second
+Alias rTime(7) = uSecond
+Alias rTime(8) = WeekDay
+Alias rTime(9) = Day_of_Year
+
+'Declare Other Variables
+'Example:
+'Dim Counter]
+Dim j
+
+'Declare Constants
+'Example:
+'CONST PI = 3.141592654	
+Public port 'which port are we opening
+Dim SiteValve(6) As Long
+'Define Data Tables
+DataTable (Manifold,1,-1)
+    DataInterval (0,1,Sec,10)
+	Minimum (1,batt_volt,FP2,0,False)
+	Sample(1,port,UINT2)
+EndTable
+
+'Define Subroutines
+'Sub
+	'EnterSub instructions here
+'EndSub
+
+'Main Program
+BeginProg
+  ' initialize ports
+  port = 1
+  SiteValve(1)=&B00000001
+  For j =2 To 5
+   SiteValve(j) = SiteValve(j-1) <<1
+   Next
+	Scan (1,Sec,0,0)
+	  'get real time
+	  RealTime(rTime)
+	  
+		PanelTemp (PTemp,250)
+		Battery (Batt_volt)
+		'Enter other measurement instructions
+				
+		'Call Output Tables
+		'Example:
+		port = 1
+		''what port to open?
+		If (NOT ((Hour = 10) OR (Hour = 12) OR (Hour = 14) OR (Hour=16))) Then 
+		  port = 1
+		ElseIf ((Minute >=3) AND (Minute < 7)) Then 
+		  port = 2
+		ElseIf ((Minute >=10) AND (Minute < 14)) Then 
+		  port = 3
+		ElseIf ((Minute >= 17) AND (Minute < 21)) Then
+		   port = 4
+		ElseIf ((Minute >=24) AND (Minute < 27)) Then 
+		  port = 5
+
+		EndIf
+
+		SDMCD16AC(SiteValve(port),1,0)
+		CallTable Manifold
+	NextScan
+EndProg
+
