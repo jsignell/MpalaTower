@@ -5,7 +5,7 @@
 #        and are stored in folders according to their data file names.
 # Modified by: Julia Signell
 # Date created: 2014-11-10
-# Date modified: 2015-04-16
+# Date modified: 2015-04-26
 
 import numpy as np
 import pandas as pd
@@ -78,18 +78,18 @@ def createmeta(DFList, header_file):  # metadata needed to be CF-1.6 compliant
     for i in range(len(DFList)):
         doy = DFList[i].index[0].dayofyear
         y = DFList[i].index[0].year
-        ncfilename.append('raw_MpalaTower_%i_%03d.nc' % (y, doy))
         # create the output filenames
+        ncfilename.append('raw_MpalaTower_%i_%03d.nc' % (y, doy))
 
     # in the .dat datafiles, some metadata are written in the 1st row
     df_meta = pd.read_csv(header_file, nrows=1)
     meta = list(df_meta.columns.values)
 
     # use the 2nd item in list as instrument
-    instrument = meta[1]
-    program = meta[5]
-    data = meta[7]
-    source_info = (instrument, data, program, meta[6])
+    logger = meta[1]
+    program = meta[5].split(':')[1]
+    datafile = meta[7]
+    source_info = (logger, datafile, program, meta[6])
     source = 'Flux tower sensor data %s_%s.dat, %s, %s' % source_info
 
     # in the .dat files, the units are written in the 3rd row
@@ -102,7 +102,7 @@ def createmeta(DFList, header_file):  # metadata needed to be CF-1.6 compliant
     # skip first value because that is the timestamp
     type_names = list(df_types.columns.values[1:])
 
-    meta_tup = (ncfilename, instrument, program, data, source, unit_names,
+    meta_tup = (ncfilename, logger, program, datafile, source, unit_names,
                 type_names)
     return meta_tup
 
@@ -125,7 +125,7 @@ def determineHeight(meta):
 def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
              old=False):
     # this is the powerhouse function where the data in DFList moves to netCDF
-    (ncfilename, instrument, program, data, source, unit_names,
+    (ncfilename, logger, program, datafile, source, unit_names,
      type_names) = meta_tup
     (station_name, lon, lat, title, summary, license, institution,
      acknowledgement, naming_autority, dset_id, creator_name,
@@ -134,14 +134,16 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
     i = -1
     for df_day in DFList:
         i += 1
-        if ncfilename[i] in os.listdir(join(output_dir, data)):
-            continue
-        output_file = join(output_dir, data, ncfilename[i])
+        #if ncfilename[i] in os.listdir(join(output_dir, datafile)):
+        #    continue
+        output_file = join(output_dir, datafile, ncfilename[i])
         print('trying to write to %s' % output_file)
         ntime, ncols = np.shape(df_day)
 
         # create NetCDF file
-        nc = netCDF4.Dataset(output_file, mode='w', clobber=True)
+        nc = netCDF4.Dataset(output_file, mode='w', clobber=True,
+                             format='NETCDF3_CLASSIC')
+                             # leave this out to make the file netCDF4
 
         # add some global attributes
         nc.Conventions = 'CF-1.6'
@@ -155,8 +157,10 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
         nc.id = dset_id
         nc.creator_name = creator_name
         nc.creator_email = creator_email
-        nc.instrument = instrument  # should we use logger instead?
+        nc.logger = logger  # changed from instrument
         nc.source = source
+        nc.program = program
+        nc.datafile = datafile
 
         # create time dimension
         nc.createDimension('time', ntime)    # create fixed time dimension

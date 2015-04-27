@@ -10,35 +10,33 @@ import pandas as pd
 from posixpath import join
 
 
-def split_big_files(input_dir, datas, header_file=None):
+def split_big_files(input_dir, datafiles, header_file=None):
     # BEWARE THAT THERE ARE BACKUP FILES WITH THE FIRST 3000 LINES BELONGING AT
     # THE END. YOU NEED TO CORRECT FOR THIS USING CYGWIN COMMANDS
     k = 0
     little_files = []
     if not os.path.exists(join(input_dir, 'split')):
         os.mkdir(join(input_dir, 'split'))
-    data = None
-    for f in os.listdir(input_dir):
+    for f in os.listdir(input_dir):  # a directory in which there are datafiles
         conditions = ('.zip' not in f, 'ts_data' not in f, f.startswith('.'))
-        if conditions == (True, True, False):
+        if conditions is (True, True, False):
             pass
         else:
             continue
-        #    header_file = join(TSLOC, 'header.txt')
         if header_file is None:
             header_file = join(input_dir, f)
-        if any(data in f for data in datas):
-            data = [data for data in datas if data in f][0]
-        else:
-            print('%s has an unknown datatype' % f)
-            continue
+        for datafile in datafiles:
+            if datafile in f:
+                datafile = datafile
+            else:
+                continue
         print(f)
         statinfo = os.stat(join(input_dir, f))
         file_size = statinfo.st_size
         if file_size >= 200000000:
             print(file_size)
             in_out_f = ('%s_%02d' % (join(input_dir, f) +
-                        ' ' + join(input_dir, 'split', data), k))
+                        ' ' + join(input_dir, 'split', datafile), k))
             os.system(r'C:\cygwin\bin\bash.exe --login -c "split -C 180M -d %s"' %
                       in_out_f)
             print('processed %s' % in_out_f)

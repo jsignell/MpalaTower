@@ -1,7 +1,8 @@
-
-
-
-
+# Script:archive_data_to_netcdf.py
+#        runs netcdf functions on old datafiles
+# Modified by: Julia Signell
+# Date created: 2015-04-16
+# Date modified: 2015-04-26
 
 import os
 import shutil
@@ -89,7 +90,12 @@ def flux_archive_search(input_dir, output_dir, old=True):
 
 def main():
     #tsmain(TSDIR, NETCDFDIR, old=True)
-    dirs = [dir for dir in os.listdir(ARCHIVEDIR)]
+    print('starting to process old files now: ', dt.datetime.now())
+    keys = ['dvantech', 'ower','logger']
+    dirs = []
+    for dir in os.listdir(ARCHIVEDIR):
+        if [key for key in keys if key in dir] != []:
+            dirs.append(dir)
     for input_dir in dirs:
         try:
             flux_archive_search(join(ARCHIVEDIR, input_dir), NETCDFDIR,

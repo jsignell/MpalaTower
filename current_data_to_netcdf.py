@@ -74,8 +74,8 @@ def main():
     except:
         print('no stdout')
 
-    #fluxmain(DATADIR, NETCDFDIR, old=False)
-    tsmain(TSDIR, NETCDFDIR, old=False)
+    fluxmain(DATADIR, NETCDFDIR, old=False)
+    #tsmain(TSDIR, NETCDFDIR, old=False)
 
     try:
         shutil.rmtree(join(NETCDFDIR, 'share'))
