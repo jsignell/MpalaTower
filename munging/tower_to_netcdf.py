@@ -117,7 +117,7 @@ def pd_to_secs(df):
                                         for x in df.index], dtype=np.float)
 
 
-def createNC(output_dir, input_file, DFList, ncfilenames, attrs, coords, 
+def createNC(output_dir, input_file, DFList, ncfilenames, attrs, coords,
              units, types, old=False):
     # this is the powerhouse function where the data in DFList moves to netCDF
     i = -1
@@ -255,7 +255,7 @@ def ts_run(input_dir, input_file, header_file, old=False):
         DFList = group_df_by_day(createDF(input_file, header_file=header_file),
                                  old=old)
     else:
-        if meta[7] == 'ts_data':  # has header in file
+        if meta[7] == 'ts_data':  # has header in file           
             DFList = group_df_by_day(createDF(input_file), old=old)
         else:  # doesn't have header
             DFList = group_df_by_day(createDF(input_file,
