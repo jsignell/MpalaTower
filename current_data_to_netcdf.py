@@ -28,9 +28,14 @@ def fluxmain(input_dir, output_dir, old=False):
             print(f)
         else:
             continue
-        input_file = join(input_dir, f)
-        DFList = t2n.group_df_by_day(t2n.createDF(input_file), old=old)
-        t2n.process(input_dir, input_file, output_dir, DFList, f, old=old)
+        file_to_netcdf(input_dir, output_dir, f, attrs, old=old)
+
+
+def file_to_netcdf(input_dir, output_dir, f, attrs, old=False):
+    input_file = join(input_dir, f)
+    df = t2n.createDF(input_file)
+    DFList = t2n.group_df_by_day(df, old=old)
+    t2n.process(input_dir, input_file, output_dir, DFList, f, attrs, old=old)
 
 
 def tsmain(input_dir, output_dir, old=False):
@@ -87,5 +92,5 @@ def main():
     print('all done with the raw file production for today: %s!' %
           dt.datetime.today())
 
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()

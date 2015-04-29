@@ -58,21 +58,24 @@ def fluxmain(input_dir, output_dir, datas, old=True):
         pass
 
 
-def tsmain(input_dir, output_dir, old=True):
-    #split.split_big_files(input_dir)
-    ### DO NOT RUN THIS UNLESS YOU INTEND TO CLEAN UP
+def tsmain(input_dir, output_dir, attrs, old=True):
+    # DO NOT RUN THIS UNLESS YOU INTEND TO CLEAN UP
     header_file = join(input_dir, 'header.txt')
+    #split.split_big_files(input_dir, ['ts_data'], header_file=header_file)
     DFL = []
     files = os.listdir(join(input_dir, 'split'))
-    files.sort()
-    processed = open(join(input_dir, 'processed2netCDF.txt'), 'r').read()
+    try:
+        processed = open(join(input_dir, 'processed2netCDF.txt'), 'r').read()
+    except:
+        print('no processed file available')
+        processed = ''
     for f in [f for f in files if f not in processed]:
         print('trying to run', f)
         input_file = join(input_dir, 'split', f)
         DFL.append(t2n.ts_run(input_dir, input_file, header_file, old=old))
         if len(DFL) > 1:
             DFList, DFL = split.group_by_day(DFL)
-            t2n.process(input_dir, input_file, output_dir, DFList, f,
+            t2n.process(input_dir, input_file, output_dir, DFList, f, attrs,
                         header_file=header_file, old=old)
 
 
@@ -89,7 +92,7 @@ def flux_archive_search(input_dir, output_dir, old=True):
 
 
 def main():
-    #tsmain(TSDIR, NETCDFDIR, old=True)
+    tsmain(TSDIR, NETCDFDIR, old=True)
     print('starting to process old files now: ', dt.datetime.now())
     keys = ['dvantech', 'ower','logger']
     dirs = []
@@ -108,5 +111,5 @@ def main():
 
     t2n.createSummaryTable(NETCDFDIR)
 
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()

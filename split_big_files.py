@@ -18,16 +18,16 @@ def split_big_files(input_dir, datafiles, header_file=None):
     if not os.path.exists(join(input_dir, 'split')):
         os.mkdir(join(input_dir, 'split'))
     for f in os.listdir(input_dir):  # a directory in which there are datafiles
-        conditions = ('.zip' not in f, 'ts_data' not in f, f.startswith('.'))
-        if conditions is (True, True, False):
+        conditions = ('.zip' not in f, f.startswith('.'))
+        if conditions == (True, False):
             pass
         else:
             continue
         if header_file is None:
             header_file = join(input_dir, f)
-        for datafile in datafiles:
-            if datafile in f:
-                datafile = datafile
+        for d in datafiles:
+            if d in f:
+                datafile = d
             else:
                 continue
         print(f)
@@ -35,8 +35,8 @@ def split_big_files(input_dir, datafiles, header_file=None):
         file_size = statinfo.st_size
         if file_size >= 200000000:
             print(file_size)
-            in_out_f = ('%s_%02d' % (join(input_dir, f) +
-                        ' ' + join(input_dir, 'split', datafile), k))
+            in_out_f = (join(input_dir, f) + ' ' +
+                        '%s_%02d' % (join(input_dir, 'split', datafile), k))
             os.system(r'C:\cygwin\bin\bash.exe --login -c "split -C 180M -d %s"' %
                       in_out_f)
             print('processed %s' % in_out_f)

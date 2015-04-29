@@ -12,38 +12,38 @@ import pandas as pd
 import netCDF4
 import re
 import os
-import shutil
 import datetime as dt
 import matplotlib.pyplot as plt
 from posixpath import join
 
-station_name = 'MPALA Tower'
-lon = 36.9        # degrees east
-lat = 0.5         # degrees north
-timezone = + 0300  # Africa/Nairobi
+coords  = dict(
+    station_name = 'MPALA Tower',
+    lon = 36.9,         # degrees east
+    lat = 0.5,          # degrees north
+    elevation = 1610    # m above sea level
+    )
 
-# add highly recommended metadata from:
-# http://wiki.esipfed.org/index.php/Attribute_Convention_for_Data_Discovery_1-3
-
-title = 'Flux Tower Data from MPALA'
-summary = ('This raw data comes from the MPALA Flux Tower, which is ' +
-           'maintained by the Ecohydrology Lab at Mpala Research Centre in ' +
-           'Laikipia, Kenya. It is part of a long-term monitoring project ' +
-           'that was originally funded by NSF and now runs with support ' +
-           'from Princeton. Its focus is on using stable isotopes to better ' +
-           'understand water balance in drylands, particularly ' +
-           'transpiration and evaporation fluxes.')
-license = 'MIT License'
-institution = 'Princeton University'
-acknowledgement = 'Funded by NSF and Princeton University'
-naming_authority = 'caylor.princeton.edu'
-dset_id = station_name
-creator_name = 'Kelly Caylor'
-creator_email = 'kcaylor@princeton.edu'
-keywords = ['eddy covariance', 'isotope hydrology', 'land surface flux']
-static_info = (station_name, lon, lat, title, summary, license, institution,
-               acknowledgement, naming_authority, dset_id, creator_name,
-               creator_email)
+attrs = dict(
+    title = 'Flux Tower Data from MPALA',
+    summary = ('This raw data comes from the MPALA Flux Tower, which is ' +
+               'maintained by the Ecohydrology Lab at Mpala Research Centre ' +
+               'in Laikipia, Kenya. It is part of a long-term monitoring ' +
+               'project that was originally funded by NSF and now runs with ' +
+               'support from Princeton. Its focus is on using stable ' +
+               'isotopes to better understand water balance in drylands, ' +
+               'particularly transpiration and evaporation fluxes.'),
+    license = 'MIT License',
+    institution = 'Princeton University',
+    acknowledgement = 'Funded by NSF and Princeton University',
+    naming_authority = 'caylor.princeton.edu',
+    id = 'MPALA Tower',
+    creator_name = 'Kelly Caylor',
+    creator_email = 'kcaylor@princeton.edu',
+    keywords = ['eddy covariance', 'isotope hydrology', 'land surface flux'],
+    Conventions = 'CF-1.6',
+    featureType = 'timeSeries',
+    local_timezone = 'Africa/Nairobi'
+    )
 
 
 def createDF(input_file, header_file=None):
@@ -73,70 +73,59 @@ def group_df_by_day(df, old=False):
     return DFList
 
 
-def createmeta(DFList, header_file):  # metadata needed to be CF-1.6 compliant
-    ncfilename = []
+def createmeta(DFList, attrs, header_file):
+    # metadata needed to be CF-1.6 compliant
+    ncfilenames = []
     for i in range(len(DFList)):
         doy = DFList[i].index[0].dayofyear
         y = DFList[i].index[0].year
         # create the output filenames
-        ncfilename.append('raw_MpalaTower_%i_%03d.nc' % (y, doy))
+        ncfilenames.append('raw_MpalaTower_%i_%03d.nc' % (y, doy))
 
     # in the .dat datafiles, some metadata are written in the 1st row
     df_meta = pd.read_csv(header_file, nrows=1)
-    meta = list(df_meta.columns.values)
+    meta_list = list(df_meta.columns.values)
 
     # use the 2nd item in list as instrument
-    logger = meta[1]
-    program = meta[5].split(':')[1]
-    datafile = meta[7]
-    source_info = (logger, datafile, program, meta[6])
+    attrs.update({'format': meta_list[0],
+                  'logger': meta_list[1],
+                  'program': meta_list[5].split(':')[1],
+                  'datafile': meta_list[7]})
+    source_info = (attrs['logger'], attrs['datafile'], attrs['program'],
+                   meta_list[6])
     source = 'Flux tower sensor data %s_%s.dat, %s, %s' % source_info
+    attrs.update({'source': source})
 
     # in the .dat files, the units are written in the 3rd row
     df_units = pd.read_csv(header_file, skiprows=[0, 1], nrows=1)
     # skip first value because that is the timestamp
-    unit_names = list(df_units.columns.values[1:])
+    units = list(df_units.columns.values[1:])
 
     # in the .dat datafiles, the measurement types are written in the 4th row
     df_types = pd.read_csv(header_file, skiprows=[0, 1, 2], nrows=1)
     # skip first value because that is the timestamp
-    type_names = list(df_types.columns.values[1:])
+    types = list(df_types.columns.values[1:])
 
-    meta_tup = (ncfilename, logger, program, datafile, source, unit_names,
-                type_names)
-    return meta_tup
+    return ncfilenames, attrs, units, types
 
 
 def pd_to_secs(df):
     # convert a pandas datetime index to "seconds since 1970-01-01 00:00"
-    import calendar
-    return np.asarray([calendar.timegm(x.timetuple()) for x in df.index],
-                      dtype=np.int64)
+    return np.asarray([netCDF4.date2num(x,
+                                        units='seconds since 1970-01-01 00:00:00',
+                                        calendar='Gregorian')
+                                        for x in df.index], dtype=np.float)
 
 
-def determineHeight(meta):
-    if meta[7] == 'upper':
-        height = 24
-    else:
-        height = 0
-    return height
-
-
-def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
-             old=False):
+def createNC(output_dir, input_file, DFList, ncfilenames, attrs, coords, 
+             units, types, old=False):
     # this is the powerhouse function where the data in DFList moves to netCDF
-    (ncfilename, logger, program, datafile, source, unit_names,
-     type_names) = meta_tup
-    (station_name, lon, lat, title, summary, license, institution,
-     acknowledgement, naming_autority, dset_id, creator_name,
-     creator_email) = static_info
-
     i = -1
     for df_day in DFList:
         i += 1
-        #if ncfilename[i] in os.listdir(join(output_dir, datafile)):
+        #if ncfilenames[i] in os.listdir(join(output_dir, datafile)):
         #    continue
-        output_file = join(output_dir, datafile, ncfilename[i])
+        output_file = join(output_dir, attrs['datafile'], ncfilenames[i])
         print('trying to write to %s' % output_file)
         ntime, ncols = np.shape(df_day)
 
@@ -146,32 +135,18 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
                              # leave this out to make the file netCDF4
 
         # add some global attributes
-        nc.Conventions = 'CF-1.6'
-        nc.featureType = 'timeSeries'
-        nc.title = title
-        nc.summary = summary
-        nc.license = license
-        nc.institution = institution
-        nc.acknowledgement = acknowledgement
-        nc.naming_authority = naming_authority
-        nc.id = dset_id
-        nc.creator_name = creator_name
-        nc.creator_email = creator_email
-        nc.logger = logger  # changed from instrument
-        nc.source = source
-        nc.program = program
-        nc.datafile = datafile
+        nc.setncatts(attrs)
 
         # create time dimension
         nc.createDimension('time', ntime)    # create fixed time dimension
 
         # create dimension for station_name
-        nchar_max = len(station_name)
+        nchar_max = len(coords['station_name'])
         nc.createDimension('name_strlen', nchar_max)
 
         # Create time,lon,lat,altitude variables
         tvar = nc.createVariable('time', 'f8', dimensions=('time'))
-        tvar.units = 'seconds since 1970-01-01 00:00'
+        tvar.units = 'seconds since 1970-01-01 00:00:00'
         tvar.standard_name = 'time'
         tvar.calendar = 'gregorian'
 
@@ -188,7 +163,7 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
         latvar.standard_name = 'latitude'
         evar = nc.createVariable('elevation', 'f4')
         evar.units = 'm'
-        evar.standard_name = 'height'
+        evar.standard_name = 'elevation'
         evar.positive = 'up'
         evar.axis = 'Z'
 
@@ -206,17 +181,17 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
         # add attributes to variables from datafile
         k = startcol
         for v in var:
-            v.units = (re.sub('[.]', ':', unit_names[k])).split(':')[0]
+            v.units = (re.sub('[.]', ':', units[k])).split(':')[0]
             # units like "deg C.17" or "deg C:17" should just be "deg C"
-            v.comment = (re.sub('[.]', ':', type_names[k])).split(':')[0]
+            v.comment = (re.sub('[.]', ':', types[k])).split(':')[0]
             v.coordinates = 'time lon lat elevation'
             v.content_coverage_type = 'physicalMeasurement'
             k += 1
         # write lon,lat, elevation and station id
-        lonvar[0] = lon
-        latvar[0] = lat
-        evar[0] = height
-        stavar[:] = netCDF4.stringtoarr(station_name, nchar_max)
+        lonvar[0] = coords['lon']
+        latvar[0] = coords['lat']
+        evar[0] = coords['elevation']
+        stavar[:] = netCDF4.stringtoarr(coords['station_name'], nchar_max)
         # write time values
         tvar[:] = pd_to_secs(df_day)
         # Write data from datafile to NetCDF
@@ -225,24 +200,7 @@ def createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
             v[:] = df_day.iloc[:, k].values
             k += 1
         nc.close()
-        print('%s finished processing' % ncfilename[i])
-
-
-def checkmerge(output_dir):
-    l = []
-    list_elements = []
-    to_merge = []
-    for i in os.walk(output_dir):
-        l.append(i)
-    for folder in l:
-        for elements in folder[2]:
-            list_elements.append(elements)
-    for element in set(list_elements):
-        if list_elements.count(element) >= 2:
-            to_merge.append(element)
-            print (element, 'occurs in', list_elements.count(element),
-                   'out of 8 possible')
-    return to_merge
+        print('%s finished processing' % ncfilenames[i])
 
 
 def createSummaryTable(output_dir):
@@ -277,43 +235,14 @@ def createSummaryTable(output_dir):
     print('Updated the Data Availability docs!')
 
 
-def zip_and_move(input_dir, output_dir):
-    # this doesn't actually save much space and it is super annoying so we
-    # aren't going to call it anymore
-    for files in os.listdir(input_dir):
-        if '.' in files:
-            shutil.copy2(join(input_dir, files), join(output_dir, files))
-    l = []
-    for i in os.walk(input_dir):
-        l.append(i)
-
-    folders = l[0][1]
-    for folder in folders:
-        src = join(input_dir, folder)
-        dst = join(output_dir, folder)
-
-        # ts_data is not zipped because the compression is less than 20%
-        # and it needs zip64
-        if 'ts_data' in folder:
-            for filename in os.listdir(src):
-                if filename not in os.listdir(dst):
-                    shutil.copy2(join(src, filename), join(dst, filename))
-        else:
-            shutil.make_archive(dst, 'zip', src)
-            # this takes a while to run, but dropbox is smart enough to
-            # know that it is an edit, so the upload time is minimal
-        print('done zipping or copying %s' % folder)
-
-
-def process(input_dir, input_file, output_dir, DFList, f, header_file=None,
-            old=False):
+def process(input_dir, input_file, output_dir, DFList, f, attrs,
+            header_file=None, old=False):
     # runs all the easy parts of the functions
     if header_file is None:
         header_file = input_file
-    meta_tup = createmeta(DFList, header_file)
-    height = determineHeight(meta_tup[1])
-    createNC(output_dir, input_file, DFList, static_info, meta_tup, height,
-             old=old)
+    ncfilenames, attrs, units, types = createmeta(DFList, attrs, header_file)
+    createNC(output_dir, input_file, DFList, ncfilenames, attrs, coords,
+             units, types, old=old)
     processed = open(join(input_dir, 'processed2netCDF.txt'), 'a')
     processed.write(f + '\n')
     processed.close
