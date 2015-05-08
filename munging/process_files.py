@@ -29,7 +29,7 @@ def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
                 ds = t2n.createDS(df, input_dict, attrs, coords, local_attrs)
                 output_path = posixpath.join(out_path, nc)
                 ds_temp = xray.open_dataset(output_path)
-                xray.concat(ds_temp, ds, dim= 'time', mode='different')
+                xray.concat(ds_temp, ds, dim='time', mode='different')
             else:
                 continue
         else:

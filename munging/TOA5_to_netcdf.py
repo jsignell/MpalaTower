@@ -118,7 +118,7 @@ def get_coords(ds):
 
 def fix_time(ds):
     a = {'units': 'seconds since 2010-01-01'}
-    return ds.update({'time': ('time',ds['time'].values, a)})
+    return ds.update({'time': ('time', ds['time'].values, a)})
 
 
 def createDS(df, input_dict, attrs, coords, local_attrs):

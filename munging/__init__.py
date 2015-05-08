@@ -23,10 +23,12 @@ TSDIR = DATADIR + 'CR3000_SN4709_ts_data/'
 NETCDFDIR = DATADIR+'raw_netCDF_output/'
 NETCDFPUB = DATADIR+'raw_netCDF_output/'
 
-input_dir = 'C:/Users/Julia/Documents/GitHub/MpalaTower/munging/current_data/'
+root_dir = os.path.dirname(__file__).strip('munging')
+
+input_dir = posixpath.join(root_dir, 'munging/current_data/')
 datafiles = ['lws', 'upper', 'flux', 'ts_data', 'WVIA', 'Manifold',
              'Table1', 'licor6262']
-output_dir = 'C:/Users/Julia/Documents/GitHub/MpalaTower/inspection/raw_netCDF_output/'
+output_dir = posixpath.join(root_dir, 'inspection/raw_netCDF_output/')
 
 kwargs = dict(archive=True,
               rerun=True,
