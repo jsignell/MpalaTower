@@ -13,6 +13,7 @@ import posixpath
 import pandas as pd
 import numpy as np
 import xray
+import zipfile
 
 usr = 'Julia'
 ROOTDIR = 'C:/Users/{usr}/Dropbox (PE)/KenyaLab/Data/Tower/'.format(usr=usr)
@@ -27,9 +28,9 @@ datafiles = ['lws', 'upper', 'flux', 'ts_data', 'WVIA', 'Manifold',
              'Table1', 'licor6262']
 output_dir = 'C:/Users/Julia/Documents/GitHub/MpalaTower/inspection/raw_netCDF_output/'
 
-how_to_run = dict(archive=True,
-                  rerun=True,
-                  allow_partial=False)
+kwargs = dict(archive=True,
+              rerun=True,
+              allow_partial=True)
 
 coords = dict(
     station_name='MPALA Tower',

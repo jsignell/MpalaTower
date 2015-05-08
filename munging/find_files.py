@@ -1,5 +1,5 @@
 '''
-Find files of interest and rangle them into an input_dict
+Find files of interest and rangle them into a list of input_dicts
 
 Julia Signell
 2015-05-07
@@ -22,11 +22,28 @@ def already_processed(path, f):
 
 
 def fresh_processed(path):
+    '''Open and clear the processed to netcdf file in each input_dir.'''
     processed_file = posixpath.join(path, 'processed2netCDF.txt')
     if os.path.isfile(processed_file):
         processed = open(processed_file, 'w')
         processed.write('')
         processed.close
+
+
+def unzip(path, f):
+    '''Write unzipped file to path and redefine f'''
+    archive = zipfile.ZipFile(posixpath.join(path, f), 'r')
+    f = f.partition('.zip')[0]
+    try:
+        archive.extract(posixpath.join('share', f), path)
+        path = posixpath.join(path, 'share')
+    except:
+        try:
+            archive.extract(f, path)
+        except:
+            print('cannot unzip', f)
+            return
+    return path, f
 
 
 def has_header(input_dict):
@@ -37,14 +54,14 @@ def has_header(input_dict):
         return input_dict.update({'has_header': True,
                                   'header_file': input_file})
     else:
-        try:
-            header_file = posixpath.join(input_dict['path'], 'header.txt')
-        except:
-            if input_dict['datafile'] == 'ts_data':
-                header_file = posixpath.join(TSDIR, 'header.txt')
-            else:
-                print('couldn\'t find header file')
-                header_file = None
+        header_file = posixpath.join(input_dict['path'], 'header.txt')
+        if os.path.isfile(header_file):
+            pass
+        elif input_dict['datafile'] == 'ts_data':
+            header_file = posixpath.join(TSDIR, 'header.txt')
+        else:
+            print('couldn\'t find header file')
+            header_file = None
         return input_dict.update({'has_header': False,
                                   'header_file': header_file})
 
@@ -56,7 +73,6 @@ def split_file(k, input_dict):
     split_path = posixpath.join(path, 'split')
     if not os.path.exists(split_path):
         os.mkdir(split_path)
-    print(file_size)
     in_out_f = (posixpath.join(path, f) + ' ' +
                 '%s_%02d' % (posixpath.join(split_path, d), k))
     os.system(r'C:\cygwin\bin\bash.exe --login -c "split -C 180M -d %s"' %
@@ -69,31 +85,35 @@ def split_file(k, input_dict):
     return k, input_dict
 
 
-def get_files(input_dir, archive=False, rerun=True, allow_partial=False):
+def get_files(input_dir, **kwargs):
     '''Return list of data dicts containing path, filename, datafile'''
     input_dicts = []
     for path, dirs, files in os.walk(input_dir):
         k = 0
         path = path.replace('\\', '/')
         print(path)
-        if rerun is True:
+        if kwargs.get('rerun') is True:
             fresh_processed(path)
         for f in files:
-            exclude = ('.zip' in f, f.startswith('.'))
-            if exclude != (False, False):
+            if f.startswith('.') == True:
                 continue
-            if archive is True and rerun is False:
+            if kwargs.get('archive') is True and kwargs.get('rerun') is False:
                 if already_processed(path, f) is True:
                     continue
             for d in datafiles:
                 if d in f:
+                    if '.zip' in f:
+                        print('hit zip', f)
+                        try:
+                            path, f = unzip(path, f)
+                        except:
+                            continue
                     input_dict = ({'path': path,
                                    'filename': f,
                                    'datafile': d})
                     has_header(input_dict)
-                    big = 200000000
+                    big = 205000000
                     if os.stat(posixpath.join(path, f)).st_size >= big:
                         k, input_dict = split_file(k, input_dict)
-
                     input_dicts.append(input_dict)
     return input_dicts

@@ -10,7 +10,7 @@ from __init__ import *
 
 def manage_dtypes(x):
     '''Ensure that all data columns are either intergers or floats'''
-    if x.values.dtype == np.dtype('int64') or np.dtype('float64'):
+    if x.values.dtype == np.dtype('int64'):
         return x
     else:
         try:
@@ -116,10 +116,16 @@ def get_coords(ds):
     return ds
 
 
+def fix_time(ds):
+    a = {'units': 'seconds since 2010-01-01'}
+    return ds.update({'time': ('time',ds['time'].values, a)})
+
+
 def createDS(df, input_dict, attrs, coords, local_attrs):
     '''Create an xray.Dataset object from dataframe and dicts of parts'''
     ds = xray.Dataset(attrs=attrs, coords=coords)
     ds.update(xray.Dataset.from_dataframe(df))
+    fix_time(ds)
     ds = get_coords(ds)
     for name in ds.data_vars.keys():
         ds[name].attrs = local_attrs[name]
