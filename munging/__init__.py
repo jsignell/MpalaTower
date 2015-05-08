@@ -23,7 +23,7 @@ TSDIR = DATADIR + 'CR3000_SN4709_ts_data/'
 NETCDFDIR = DATADIR+'raw_netCDF_output/'
 NETCDFPUB = DATADIR+'raw_netCDF_output/'
 
-root_dir = os.path.dirname(__file__).strip('munging')
+root_dir = root_dir = os.getcwd().replace('\\','/').strip('munging')
 
 input_dir = posixpath.join(root_dir, 'munging/current_data/')
 datafiles = ['lws', 'upper', 'flux', 'ts_data', 'WVIA', 'Manifold',
