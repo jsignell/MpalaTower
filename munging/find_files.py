@@ -6,6 +6,7 @@ Julia Signell
 '''
 
 from __init__ import *
+from process_files import *
 
 
 def already_processed(path, f):
@@ -15,7 +16,7 @@ def already_processed(path, f):
         processed = open(processed_file, 'r').read()
     except:
         processed = []
-    if f in processed:
+    if f in processed or f.strip('.zip') in processed:
         return True
     else:
         return False
@@ -34,16 +35,24 @@ def unzip(path, f):
     '''Write unzipped file to path and redefine f'''
     archive = zipfile.ZipFile(posixpath.join(path, f), 'r')
     f = f.partition('.zip')[0]
+    proper_path = posixpath.join(path, 'share')
     try:
-        archive.extract(posixpath.join('share', f), path)
-        path = posixpath.join(path, 'share')
+        if os.path.isfile(posixpath.join(path, 'share', f)):
+            return proper_path, f
+        else:
+            archive.extract(posixpath.join('share', f), path)
+            return proper_path, f
     except:
         try:
             archive.extract(f, path)
+            return path, f
         except:
-            print('cannot unzip', f)
-            return
-    return path, f
+            try:
+                archive.extract(posixpath.join('sn4709_ts_5_min_data', f), path)
+                return posixpath.join(path, 'sn4709_ts_5_min_data'), f
+            except:
+                print('cannot unzip', f)
+                return
 
 
 def has_header(input_dict):
@@ -85,10 +94,26 @@ def split_file(k, input_dict):
     return k, input_dict
 
 
-def get_files(input_dir, **kwargs):
+def rangle(path, f, d, k):
+    '''Rangle file into input_dict.'''
+    if '.zip' in f:
+        path, f = unzip(path, f)
+    input_dict = ({'path': path,
+                   'filename': f,
+                   'datafile': d})
+    has_header(input_dict)
+    big = 210000000
+    if os.stat(posixpath.join(path, f)).st_size >= big:
+        k, input_dict = split_file(k, input_dict)
+    return k, input_dict
+
+
+def get_files(input_dir, output_dir, attrs, coords, **kwargs):
     '''Return list of data dicts containing path, filename, datafile'''
     input_dicts = []
     for path, dirs, files in os.walk(input_dir):
+        if 'share' in path or 'split' in path:
+            continue
         k = 0
         path = path.replace('\\', '/')
         print(path)
@@ -101,19 +126,18 @@ def get_files(input_dir, **kwargs):
                 if already_processed(path, f) is True:
                     continue
             for d in datafiles:
-                if d in f:
-                    if '.zip' in f:
-                        print('hit zip', f)
-                        try:
-                            path, f = unzip(path, f)
-                        except:
-                            continue
-                    input_dict = ({'path': path,
-                                   'filename': f,
-                                   'datafile': d})
-                    has_header(input_dict)
-                    big = 205000000
-                    if os.stat(posixpath.join(path, f)).st_size >= big:
-                        k, input_dict = split_file(k, input_dict)
-                    input_dicts.append(input_dict)
+                if d in f and '.dat' in f:
+                    try:
+                        k, input_dict = rangle(path, f, d, k)
+                    except:
+                        print('could not rangle {path}{f}'.format(path=path, f=f))
+                        continue
+                    if kwargs.get('run_as_we_go') is True:
+                        if 'splits' in input_dict.keys():
+                            run_splits(input_dict, output_dir, attrs, coords, **kwargs)
+                        else:
+                            run_wholes(input_dict, output_dir, attrs, coords, **kwargs)
+                        continue
+                    else:
+                        input_dicts.append(input_dict)
     return input_dicts

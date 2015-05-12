@@ -1,0 +1,5 @@
+"TOA5","CR3000_SN4709","CR3000","1053413","CR3000.Std.11","CPU:MainTowerCR3000_V11.cr3","39879","ts_data"
+"TIMESTAMP","RECORD","Ux","Uy","Uz","Ts","fw","co2","h2o","press","diag_csat","t_hmp","e_hmp","rh_hmp","WVIA_H2Oppm","WVIA_H2O_O18_16","WVIA_HDOoverH2O","WVIA_DoverH","WVIA_O18overO16","WVIA_delD","WVIA_del18O","WVIA_PressTorr","WVIA_CavTempC","WVIA_MirrorTempUS","kh_mV","KH_rho_w"
+"TS","RN","m/s","m/s","m/s","C","C","mg/m^3","g/m^3","kPa","unitless","C","kPa","percent","","","","","","","","","","","mV","g/m^3"
+"","","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp","Smp"
+"2014-09-22 23:22:55.3",483373770,1.297,-0.37725,0.3055,20.72818,"NAN",596.3289,9.829991,83.79656,0,19.00905,1.220714,55.55151,12119.1,0.00198678,0.000288112,0.00014498,0.00197486,-69.14771,-15.1289,39.609,48.502,8.21667,0.08224371,54.39283

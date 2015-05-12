@@ -10,7 +10,7 @@ from __init__ import *
 
 def manage_dtypes(x):
     '''Ensure that all data columns are either intergers or floats'''
-    if x.values.dtype == np.dtype('int64'):
+    if x.values.dtype == np.dtype('int64') or x.values.dtype == np.dtype('<M8[ns]'):
         return x
     else:
         try:
@@ -92,7 +92,8 @@ def get_attrs(header_file, attrs):
     attrs.update({'source': source})
 
     # the local attributes are in the 2nd, 3rd, and 4th rows
-    df_names = pd.read_csv(header_file, skiprows=[0], nrows=2)
+    df_names = pd.read_csv(header_file, skiprows=[0], nrows=2, dtype='str')
+    df_names = df_names.astype('str')
     df_names.index = ('units', 'comment')
     local_attrs = df_names.to_dict()
 
@@ -117,7 +118,7 @@ def get_coords(ds):
 
 
 def fix_time(ds):
-    a = {'units': 'seconds since 2010-01-01'}
+    a = {'units': 'milliseconds since 2010-01-01'}
     return ds.update({'time': ('time', ds['time'].values, a)})
 
 
@@ -125,7 +126,6 @@ def createDS(df, input_dict, attrs, coords, local_attrs):
     '''Create an xray.Dataset object from dataframe and dicts of parts'''
     ds = xray.Dataset(attrs=attrs, coords=coords)
     ds.update(xray.Dataset.from_dataframe(df))
-    fix_time(ds)
     ds = get_coords(ds)
     for name in ds.data_vars.keys():
         ds[name].attrs = local_attrs[name]

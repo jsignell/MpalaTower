@@ -14,25 +14,26 @@ import pandas as pd
 import numpy as np
 import xray
 import zipfile
+import matplotlib.pyplot as plt
 
 usr = 'Julia'
 ROOTDIR = 'C:/Users/{usr}/Dropbox (PE)/KenyaLab/Data/Tower/'.format(usr=usr)
-ARCHIVEDIR = 'F:/'
+ARCHIVEDIR = 'F:/TowerDataArchive/'
 DATADIR = ROOTDIR + 'TowerData/'
 TSDIR = DATADIR + 'CR3000_SN4709_ts_data/'
 NETCDFDIR = DATADIR+'raw_netCDF_output/'
-NETCDFPUB = DATADIR+'raw_netCDF_output/'
 
-root_dir = root_dir = os.getcwd().replace('\\','/').strip('munging')
+input_dir = ARCHIVEDIR
+output_dir = NETCDFDIR
+datafiles = ['lws', 'upper', 'flux',
+             'ts_data', 'WVIA', 'Manifold',
+             'licor6262', 'Table1']
 
-input_dir = posixpath.join(root_dir, 'munging/current_data/')
-datafiles = ['lws', 'upper', 'flux', 'ts_data', 'WVIA', 'Manifold',
-             'Table1', 'licor6262']
-output_dir = posixpath.join(root_dir, 'inspection/raw_netCDF_output/')
 
-kwargs = dict(archive=True,
-              rerun=True,
-              allow_partial=True)
+kwargs = dict(archive=False,
+              rerun=False,
+              allow_partial=True,
+              run_as_we_go=True)
 
 coords = dict(
     station_name='MPALA Tower',
@@ -57,9 +58,8 @@ attrs = dict(
     id = 'MPALA Tower',
     creator_name = 'Kelly Caylor',
     creator_email = 'kcaylor@princeton.edu',
-    keywords = ['eddy covariance', 'isotope hydrology', 'land surface flux'],
+    keywords = 'eddy covariance, isotope hydrology, land surface flux',
     Conventions = 'CF-1.6',
     featureType = 'timeSeries',
     local_timezone = 'Africa/Nairobi'
     )
-
