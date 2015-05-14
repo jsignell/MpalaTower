@@ -6,7 +6,6 @@ Julia Signell
 '''
 
 from __init__ import *
-from find_files import get_files
 import TOA5_to_netcdf as t2n
 
 
@@ -14,7 +13,7 @@ def done_processing(input_dict, **kwargs):
     if 'ts_data' in input_dict['filename']:
         os.remove(posixpath.join(input_dict['path'], input_dict['filename']))
         start = ''
-        for i in path.split('/')[0:-1]:
+        for i in input_dict['path'].split('/')[0:-1]:
             start = posixpath.join(start, i)
         processed_file = posixpath.join(start, 'processed2netCDF.txt')
 
@@ -26,6 +25,24 @@ def done_processing(input_dict, **kwargs):
     processed = open(processed_file, 'a')
     processed.write(input_dict['filename']+'\n')
     return
+
+
+def merge_partials(attrs, df, output_path):
+    print(output_path)
+    ds = xray.open_dataset(output_path)
+    if ds.attrs['program'] != attrs['program']:
+        return df
+    df_old = ds.to_dataframe()
+    new_index = pd.DatetimeIndex(((df_old.index.asi8/(1e8)).round()*1e8).astype(np.int64)).values
+    df_old = df_old.set_index(new_index)
+    df_old.index.name = 'time'
+    for col in df_old.columns:
+        if col not in df.columns:
+            df_old.pop(col)
+    df = df_old.append(df)
+    df.sort(axis=1, inplace=True)
+    df = df.drop_duplicates()
+    return df
 
 
 def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
@@ -42,19 +59,8 @@ def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
         output_path = posixpath.join(out_path, nc)
         if nc not in os.listdir(out_path):
             pass
-        elif kwargs.get('allow_partial') is True or input_dict['datafile'] == 'ts_data':
-            if i == 0 or i == len(DFList)-1:
-                print(output_path)
-                ds = xray.open_dataset(output_path)
-                df_old = ds.to_dataframe()
-                new_index = pd.DatetimeIndex(((df_old.index.asi8/(1e8)).round()*1e8).astype(np.int64)).values
-                df_old = df_old.set_index(new_index)
-                df_old.index.name = 'time'
-                for col in df_old.columns:
-                    if col not in df.columns:
-                        df_old.pop(col)
-                df = df_old.append(df).drop_duplicates()
-                df.sort(axis=1, inplace=True)
+        elif i == 0 or i == len(DFList)-1:
+            df = merge_partials(attrs, df, output_path)
         elif kwargs.get('rerun') is True:
             pass
         else:
@@ -74,7 +80,7 @@ def run_splits(input_dict, output_dir, attrs, coords, **kwargs):
         else:
             input_dict.pop('has_header')
             input_dict.update({'has_header': False})
-        DFList = t2n.createDF(input_file, input_dict)
+        DFList = t2n.createDF(input_file, input_dict, attrs)
         DFL.append(DFList)
         if len(DFL) > 1:
             DFList, DFL = t2n.group_by_day(DFL)
@@ -88,16 +94,5 @@ def run_splits(input_dict, output_dir, attrs, coords, **kwargs):
 def run_wholes(input_dict, output_dir, attrs, coords, **kwargs):
     '''Run whole files'''
     input_file = posixpath.join(input_dict['path'], input_dict['filename'])
-    DFList = t2n.createDF(input_file, input_dict)
+    DFList = t2n.createDF(input_file, input_dict, attrs)
     run(DFList, input_dict, output_dir, attrs, coords, **kwargs)
-
-
-def just_do_it(input_dir, output_dir, attrs, coords, **kwargs):
-    print(dt.datetime.now())
-    input_dicts = get_files(input_dir, **kwargs)
-    for input_dict in input_dicts:
-        if 'splits' in input_dict.keys():
-            run_splits(input_dict, output_dir, attrs, coords, **kwargs)
-        else:
-            run_wholes(input_dict, output_dir, attrs, coords, **kwargs)
-    print(dt.datetime.now())
