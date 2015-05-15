@@ -23,16 +23,14 @@ DATADIR = ROOTDIR + 'TowerData/'
 TSDIR = DATADIR + 'CR3000_SN4709_ts_data/'
 NETCDFDIR = DATADIR+'raw_netCDF_output/'
 
-input_dir = ARCHIVEDIR
+input_dir = DATADIR
 output_dir = NETCDFDIR
-datafiles = ['lws', 'upper', 'flux',
-             'ts_data', 'WVIA', 'Manifold',
-             'licor6262', 'Table1']
+datafiles = ['Table1', 'WVIA', 'Manifold',
+             'flux']
 
 
 kwargs = dict(archive=False,
               rerun=False,
-              allow_partial=True,
               run_as_we_go=True)
 
 coords = dict(

@@ -82,11 +82,12 @@ def split_file(k, input_dict):
     split_path = posixpath.join(path, 'split')
     if not os.path.exists(split_path):
         os.mkdir(split_path)
-    in_out_f = (posixpath.join(path, f) + ' ' +
-                '%s_%02d' % (posixpath.join(split_path, d), k))
-    os.system(r'C:\cygwin\bin\bash.exe --login -c "split -C 180M -d %s"' %
-              in_out_f)
-    print('processed %s' % in_out_f)
+    in_f = '%s' % posixpath.join(path, f)
+    out_f = '%s_%02d' % (posixpath.join(split_path, d), k)
+
+    os.system(r'''C:\cygwin\bin\bash.exe --login -c "split -C 180M -d '%s' '%s'"''' %
+              (in_f, out_f))
+    print('split %s' % in_f)
     splits = [x for x in os.listdir(split_path) if x.startswith('%s_%02d' %
                                                                 (d, k))]
     input_dict.update(dict(splits=splits))

@@ -41,15 +41,12 @@ def merge_partials(attrs, df, output_path):
             df_old.pop(col)
     df = df_old.append(df)
     df.sort(axis=1, inplace=True)
-    df = df.drop_duplicates()
+    df.drop_duplicates(subset=('RECORD'), inplace=True)
     return df
 
 
 def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
     '''Process .dat file and write daily netcdf files.'''
-    if kwargs.get('archive') is False and kwargs.get('allow_partial') is False:
-        DFList = DFList.pop(-1)  # cut off last day
-
     ncfilenames = t2n.get_ncnames(DFList)
     out_path = posixpath.join(output_dir, input_dict['datafile'])
     attrs, local_attrs = t2n.get_attrs(input_dict['header_file'], attrs)

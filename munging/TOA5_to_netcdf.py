@@ -19,7 +19,7 @@ def manage_dtypes(x):
             return x
 
 
-def createDF(input_file, input_dict):
+def createDF(input_file, input_dict, attrs):
     '''Create a list of daily dataframes in UTC from a .dat file.'''
     kw = dict(parse_dates=True, index_col=0, iterator=True,
               chunksize=100000, low_memory=False)
@@ -32,8 +32,8 @@ def createDF(input_file, input_dict):
         df_ = pd.read_csv(input_file, header=None, names=header, **kw)
     df = pd.concat(df_)
     df.index.name = 'time'
-    df = df.apply(manage_dtypes)               # try to make all fields numeric
-    df = df.tz_localize('Africa/Nairobi')      # explain the local timezone
+    df = df.apply(manage_dtypes)           # try to make all fields numeric
+    df = df.tz_localize(attrs['local_timezone'])  # explain the local tz
     df = df.tz_convert('UTC')                  # convert df to UTC
 
     # group dataframe by day of the year in UTC
