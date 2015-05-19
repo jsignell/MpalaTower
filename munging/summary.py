@@ -39,5 +39,3 @@ ax = df_.plot(logy=True, figsize=(16, 8), linewidth=2, colormap='rainbow',
 ax.set_ylabel('Filesize [KB]')
 plt.savefig(posixpath.join(output_dir, 'DataAvailability.jpg'))
 print('Updated the Data Availability docs!')
-
-

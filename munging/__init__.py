@@ -23,10 +23,10 @@ DATADIR = ROOTDIR + 'TowerData/'
 TSDIR = DATADIR + 'CR3000_SN4709_ts_data/'
 NETCDFDIR = DATADIR+'raw_netCDF_output/'
 
-input_dir = DATADIR
+input_dir = ARCHIVEDIR
 output_dir = NETCDFDIR
-datafiles = ['Table1', 'WVIA', 'Manifold',
-             'flux']
+datafiles = ['Table1', 'flux', 'Manifold', 'WVIA',
+             'lws', 'upper', 'ts_data']
 
 
 kwargs = dict(archive=False,
