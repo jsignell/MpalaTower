@@ -16,27 +16,15 @@ import xray
 import zipfile
 import matplotlib.pyplot as plt
 
-usr = 'Julia'
-ROOTDIR = 'C:/Users/{usr}/Dropbox (PE)/KenyaLab/Data/Tower/'.format(usr=usr)
-ARCHIVEDIR = 'F:/TowerDataArchive/'
-DATADIR = ROOTDIR + 'TowerData/'
-TSDIR = DATADIR + 'CR3000_SN4709_ts_data/'
-NETCDFDIR = DATADIR+'raw_netCDF_output/'
 
-input_dir = ARCHIVEDIR
-output_dir = NETCDFDIR
 datafiles = ['Table1', 'flux', 'Manifold', 'WVIA',
-             'lws', 'upper', 'ts_data']
-
-
-kwargs = dict(archive=False,
-              rerun=False,
-              run_as_we_go=True)
+             'lws', 'upper', 'ts_data', 'soil']
 
 coords = dict(
     station_name='MPALA Tower',
-    lon=36.9,         # degrees east
-    lat=0.5,          # degrees north
+    site=None,
+    lon=36.8701,      # degrees east
+    lat=0.4856,       # degrees north
     elevation=1610    # m above sea level
     )
 

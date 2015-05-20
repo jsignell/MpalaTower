@@ -5,21 +5,33 @@ Julia Signell
 2015-05-19
 '''
 
-program = 'C:/Users/Julia/Dropbox (PE)/KenyaLab/Data/Tower/TowerData/raw_netCDF_output/programs/RadioTowerCR216_soil_V2.CR2'
-datafile = 'soil'
-serial = 'SN22030'
+from __init__ import *
 
-prog = open(program)
-program_content = prog.readlines()
-prog.close()
+
+def get_program_local(program_name, output_dir):
+    '''Get program content for a given file'''
+    program_file = open(posixpath.join(output_dir, 'programs', program_name))
+    program_content = program_file.readlines()
+    return program_content
+
+
+def convert_to_sec(num, units):
+    if units.startswith(('Min', 'min')):
+        out = int(num) * 60
+    elif units.startswith(('ms', 'mS')):
+        out = float(num) / 1000
+    elif units.startswith(('s', 'S')):
+        out = int(num)
+    else:
+        print('couldn\'t parse units')
+        return (num, units)
+    return out
 
 
 def str_to_dict(s, make_guess=False):
     '''Create dict from string containing dict and optionally an = sign.'''
     from ast import literal_eval
-    import warnings
     if '{' not in s:
-        warnings.warn("no dict found in line: '%s'" % s, SyntaxWarning)
         s_dict = {}  
     else:
         dict_str = s[s.find("{"):s.find("}")+1]  # take only what's in {}
@@ -28,15 +40,11 @@ def str_to_dict(s, make_guess=False):
     if make_guess is True:
         elements = s.split()  # separate string into list using space
         if '=' not in elements:
-            i = 0
             for element in elements:
                 if '=' in element:
                     key = element.partition('=')[0]
                     val = element.partition('=')[2]
                     s_dict.update({key: val})
-                    i+=1
-            if i == 0:
-                warnings.warn("no '=' found in line: '%s'" % s, SyntaxWarning)
         else:
             # find elements on either side of the equals sign
             eq = elements.index('=')
@@ -51,17 +59,18 @@ def get_programmed_coords(program_content=None, serial=None):
     for line in lines:
         if "'site'" in line and serial in line:
             coords = str_to_dict(line)
-    return coords
+            coords.pop('serial')
+            return coords
 
 
-def get_programmed_units_info(program_content=None):
+def get_csi_info(program_content=None):
     lines = program_content
     csi_info = []
     sensors = []
     for line in lines:
         if line.startswith('Units'):
             csi_info.append(str_to_dict(line, make_guess=True))
-        if "'model'" in line:
+        if "'sensor'" in line:
             sensors.append(str_to_dict(line))
     for u in csi_info:
         k = [k for k in u.keys() if k != 'limits'][0]
@@ -85,19 +94,6 @@ def get_programmed_units_info(program_content=None):
                     u.update(sensor)
                     u.pop('variables')
     return csi_info
-
-
-def convert_to_sec(num, units):
-    if units.startswith(('Min', 'min')):
-        out = int(num) * 60
-    elif units.startswith(('ms', 'mS')):
-        out = float(num) / 1000
-    elif units.startswith(('s', 'S')):
-        out = int(num)
-    else:
-        print('couldn\'t parse units')
-        return (num, units)
-    return out
 
 
 def get_programmed_frequency(program_content=None, datafile=None):

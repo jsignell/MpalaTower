@@ -7,6 +7,7 @@ Julia Signell
 
 from __init__ import *
 import TOA5_to_netcdf as t2n
+from parse_campbell_sci import *
 
 
 def done_processing(input_dict, **kwargs):
@@ -45,6 +46,14 @@ def merge_partials(attrs, df, output_path):
     return df
 
 
+def parse_program(output_dir, attrs, coords):
+    program_content = get_program_local(attrs['program'], output_dir)
+    if attrs['datafile'] == 'soil':
+        serial = attrs['logger'].partition('_')[2]
+        coords.update(get_programmed_coords(program_content, serial))
+    return coords
+
+
 def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
     '''Process .dat file and write daily netcdf files.'''
     ncfilenames = t2n.get_ncnames(DFList)
@@ -62,6 +71,7 @@ def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
             pass
         else:
             continue
+        coords = parse_program(output_dir, attrs, coords)
         ds = t2n.createDS(df, input_dict, attrs, coords, local_attrs)
         ds.to_netcdf(path=output_path, mode='w', format='NETCDF3_64BIT')
     done_processing(input_dict, **kwargs)
