@@ -18,14 +18,14 @@ import matplotlib.pyplot as plt
 
 
 datafiles = ['Table1', 'flux', 'Manifold', 'WVIA',
-             'lws', 'upper', 'ts_data', 'soil']
+             'lws', 'upper', 'ts_data']
 
-coords = dict(
-    station_name='MPALA Tower',
-    site=None,
-    lon=36.8701,      # degrees east
-    lat=0.4856,       # degrees north
-    elevation=1610    # m above sea level
+site=['MainTower']  # can be replaced if there are more specific sites
+
+coords_vals = dict(
+    lon=[36.8701],       # degrees east
+    lat=[0.4856],        # degrees north
+    elevation=[1610]     # m above see level
     )
 
 attrs = dict(
@@ -41,7 +41,7 @@ attrs = dict(
     institution = 'Princeton University',
     acknowledgement = 'Funded by NSF and Princeton University',
     naming_authority = 'caylor.princeton.edu',
-    id = 'MPALA Tower',
+    station_name='MPALA Tower',
     creator_name = 'Kelly Caylor',
     creator_email = 'kcaylor@princeton.edu',
     keywords = 'eddy covariance, isotope hydrology, land surface flux',

@@ -14,14 +14,15 @@ if os.path.exists('.env'):
         if len(var) == 2:
             os.environ[var[0]] = var[1]
 
-input_dir = os.getenv('ARCHIVEDIR')
+#input_dir = os.getenv('ARCHIVEDIR')
+input_dir = 'E:/'
 output_dir = os.getenv('NETCDFDIR')
 
 kwargs = dict(archive=False,
-              rerun=False,
+              rerun=True,
               run_as_we_go=True)
 
 from __init__ import *
 from find_files import get_files
 
-get_files(input_dir, output_dir, attrs, coords, **kwargs)
+get_files(input_dir, output_dir, attrs, site, coords_vals, **kwargs)

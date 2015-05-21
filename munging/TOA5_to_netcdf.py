@@ -77,15 +77,16 @@ def get_ncnames(DFList):
 def get_attrs(header_file, attrs):
     '''Augment attributes by inspecting the header of the .dat file.'''
     # metadata needs to be CF-1.6 compliant
-
     # in the TOA5 datafile headers, some metadata are written in the 1st row
-    df_meta = pd.read_csv(header_file, nrows=1)
-    meta_list = list(df_meta.columns.values)
+    meta_list = eval(open(header_file).readlines()[0])
 
     attrs.update({'format': meta_list[0],
                   'logger': meta_list[1],
-                  'program': meta_list[5].split(':')[1],
                   'datafile': meta_list[7]})
+    if ':' in  meta_list[5]:
+        attrs.update({'program': meta_list[5].split(':')[1]})
+    else:
+        attrs.update({'program': meta_list[5]})
     source_info = (attrs['logger'], attrs['datafile'], attrs['program'],
                    meta_list[6])
     source = 'Flux tower sensor data %s_%s.dat, %s, %s' % source_info
@@ -100,35 +101,52 @@ def get_attrs(header_file, attrs):
     return attrs, local_attrs
 
 
-def get_coords(ds):
-    '''Get coordinate attributes and augment dataset.'''
-    ds.coords['station_name'].attrs = dict(long_name='station name',
-                                           cf_role='timeseries_id')
-    ds.coords['lon'].attrs = dict(units='degrees east',
-                                  standard_name='longitude',
-                                  axis='X')
-    ds.coords['lat'].attrs = dict(units='degrees north',
-                                  standard_name='latitude',
-                                  axis='Y')
-    ds.coords['elevation'].attrs = dict(units='m',
-                                        standard_name='elevation',
-                                        positive='up',
-                                        axis='Z')
-    return ds
+def get_depths():
+    if input_dict['datafile'] in ('soil', 'Table1'):
+        depths = input_dict['depths']
+        coords.update({'depth': (['depth'],
+                                 depths,
+                                 dict(units='cm',
+                                      standard_name='depth',
+                                      positive='down',
+                                      axis='Z'))})
 
 
-def fix_time(ds):
-    a = {'units': 'milliseconds since 2010-01-01'}
-    return ds.update({'time': ('time', ds['time'].values, a)})
+def get_coords(coords_vals):
+    '''Process coords input in __init__ or added later'''
+    lon = coords_vals['lon']
+    lat = coords_vals['lat']
+    elevation = coords_vals['elevation']
+    
+    coords = {
+        'lon': (['site'], lon, dict(units='degrees east',
+                                     standard_name='longitude',
+                                     axis='X')),
+        'lat': (['site'], lat, dict(units='degrees north',
+                                     standard_name='latitude',
+                                     axis='Y')),
+        'elevation': (['site'], elevation, dict(units='m',
+                                                 standard_name='elevation',
+                                                 positive='up',
+                                                 axis='Z'))}
+    return coords
 
 
-def createDS(df, input_dict, attrs, coords, local_attrs):
-    '''Create an xray.Dataset object from dataframe and dicts of parts'''
-    ds = xray.Dataset(attrs=attrs, coords=coords)
-    ds.update(xray.Dataset.from_dataframe(df))
-    ds = get_coords(ds)
+def make_MultiIndex(df, site):
+    '''Replace pre-existing time index with multidim site and time index.'''  
+    indices = [site, df.index]
+    new_index = pd.MultiIndex.from_product(indices, names=['site', 'time'])
+    df.set_index(new_index, inplace=True)
+    return df
+
+
+def createDS(df, input_dict, attrs, local_attrs, site, coords_vals):
+    '''Create an xray.Dataset object from dataframe and dicts of parts'''        
+    df = make_MultiIndex(df, site)
+    ds = xray.Dataset.from_dataframe(df)    
+    ds.attrs.update(attrs)
+    ds.coords.update(get_coords(coords_vals))
     for name in ds.data_vars.keys():
         ds[name].attrs = local_attrs[name]
-        ds[name].attrs.update(dict(coordinates='time lon lat elevation',
-                                   content_coverage_type='physicalMeasurement'))
+        ds[name].attrs.update(dict(content_coverage_type='physicalMeasurement'))
     return ds

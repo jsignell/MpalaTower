@@ -7,7 +7,7 @@ Julia Signell
 
 from __init__ import *
 import TOA5_to_netcdf as t2n
-from parse_campbell_sci import *
+from parse_campbellsci import parse_program
 
 
 def done_processing(input_dict, **kwargs):
@@ -46,19 +46,12 @@ def merge_partials(attrs, df, output_path):
     return df
 
 
-def parse_program(output_dir, attrs, coords):
-    program_content = get_program_local(attrs['program'], output_dir)
-    if attrs['datafile'] == 'soil':
-        serial = attrs['logger'].partition('_')[2]
-        coords.update(get_programmed_coords(program_content, serial))
-    return coords
-
-
-def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
+def run(DFList, input_dict, output_dir, attrs, site, coords_vals, **kwargs):
     '''Process .dat file and write daily netcdf files.'''
     ncfilenames = t2n.get_ncnames(DFList)
     out_path = posixpath.join(output_dir, input_dict['datafile'])
     attrs, local_attrs = t2n.get_attrs(input_dict['header_file'], attrs)
+    site, coords_vals = parse_program(output_dir, attrs, site, coords_vals)
     for i in range(len(DFList)):
         df = DFList[i]
         nc = ncfilenames[i]
@@ -66,18 +59,20 @@ def run(DFList, input_dict, output_dir, attrs, coords, **kwargs):
         if nc not in os.listdir(out_path):
             pass
         elif i == 0 or i == len(DFList)-1:
-            df = merge_partials(attrs, df, output_path)
+            try:
+                df = merge_partials(attrs, df, output_path)
+            except: pass
         elif kwargs.get('rerun') is True:
             pass
         else:
             continue
-        coords = parse_program(output_dir, attrs, coords)
-        ds = t2n.createDS(df, input_dict, attrs, coords, local_attrs)
+        ds = t2n.createDS(df, input_dict, attrs, local_attrs,
+                          site, coords_vals)
         ds.to_netcdf(path=output_path, mode='w', format='NETCDF3_64BIT')
     done_processing(input_dict, **kwargs)
 
 
-def run_splits(input_dict, output_dir, attrs, coords, **kwargs):
+def run_splits(input_dict, output_dir, attrs, site, coords_vals, **kwargs):
     '''Run split files so that they append for each day.'''
     DFL = []
     for f in input_dict['splits']:
@@ -91,15 +86,17 @@ def run_splits(input_dict, output_dir, attrs, coords, **kwargs):
         DFL.append(DFList)
         if len(DFL) > 1:
             DFList, DFL = t2n.group_by_day(DFL)
-            run(DFList, input_dict, output_dir, attrs, coords, **kwargs)
+            run(DFList, input_dict, output_dir, attrs,
+                site, coords_vals, **kwargs)
     try:
         shutil.rmtree(path_join(input_dir, 'split/'))
     except:
         pass
 
 
-def run_wholes(input_dict, output_dir, attrs, coords, **kwargs):
+def run_wholes(input_dict, output_dir, attrs, site, coords_vals, **kwargs):
     '''Run whole files'''
     input_file = posixpath.join(input_dict['path'], input_dict['filename'])
     DFList = t2n.createDF(input_file, input_dict, attrs)
-    run(DFList, input_dict, output_dir, attrs, coords, **kwargs)
+    run(DFList, input_dict, output_dir, attrs,
+        site, coords_vals, **kwargs)

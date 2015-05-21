@@ -109,7 +109,7 @@ def rangle(path, f, d, k):
     return k, input_dict
 
 
-def get_files(input_dir, output_dir, attrs, coords, **kwargs):
+def get_files(input_dir, output_dir, attrs, site, coords_vals, **kwargs):
     '''Return list of data dicts containing path, filename, datafile'''
     input_dicts = []
     for path, dirs, files in os.walk(input_dir):
@@ -135,9 +135,11 @@ def get_files(input_dir, output_dir, attrs, coords, **kwargs):
                         continue
                     if kwargs.get('run_as_we_go') is True:
                         if 'splits' in input_dict.keys():
-                            run_splits(input_dict, output_dir, attrs, coords, **kwargs)
+                            run_splits(input_dict, output_dir, attrs,
+                                       site, coords_vals, **kwargs)
                         else:
-                            run_wholes(input_dict, output_dir, attrs, coords, **kwargs)
+                            run_wholes(input_dict, output_dir, attrs,
+                                       site, coords_vals, **kwargs)
                         continue
                     else:
                         input_dicts.append(input_dict)

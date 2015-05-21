@@ -15,19 +15,6 @@ def get_program_local(program_name, output_dir):
     return program_content
 
 
-def convert_to_sec(num, units):
-    if units.startswith(('Min', 'min')):
-        out = int(num) * 60
-    elif units.startswith(('ms', 'mS')):
-        out = float(num) / 1000
-    elif units.startswith(('s', 'S')):
-        out = int(num)
-    else:
-        print('couldn\'t parse units')
-        return (num, units)
-    return out
-
-
 def str_to_dict(s, make_guess=False):
     '''Create dict from string containing dict and optionally an = sign.'''
     from ast import literal_eval
@@ -63,6 +50,15 @@ def get_programmed_coords(program_content=None, serial=None):
             return coords
 
 
+def parse_program(output_dir, attrs, site, coords_vals):
+    if attrs['datafile'] == 'soil':
+        program_content = get_program_local(attrs['program'], output_dir)
+        serial = attrs['logger'].partition('_')[2]
+        coords_vals.update(get_programmed_coords(program_content, serial))
+        site = coords_vals.pop('site')
+    return site, coords_vals
+
+
 def get_csi_info(program_content=None):
     lines = program_content
     csi_info = []
@@ -94,6 +90,19 @@ def get_csi_info(program_content=None):
                     u.update(sensor)
                     u.pop('variables')
     return csi_info
+
+
+def convert_to_sec(num, units):
+    if units.startswith(('Min', 'min')):
+        out = int(num) * 60
+    elif units.startswith(('ms', 'mS')):
+        out = float(num) / 1000
+    elif units.startswith(('s', 'S')):
+        out = int(num)
+    else:
+        print('couldn\'t parse units')
+        return (num, units)
+    return out
 
 
 def get_programmed_frequency(program_content=None, datafile=None):
