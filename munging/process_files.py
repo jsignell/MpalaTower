@@ -28,14 +28,16 @@ def done_processing(input_dict, **kwargs):
     return
 
 
-def merge_partials(attrs, df, output_path):
-    print(output_path)
-    ds = xray.open_dataset(output_path)
-    if ds.attrs['program'] != attrs['program']:
+def old_merge_partials(attrs, site, df, nc_path):
+    ds_old = xray.open_dataset(nc_path)
+    if ds_old.attrs['program'] != attrs['program']:
         return df
-    df_old = ds.to_dataframe()
-    new_index = pd.DatetimeIndex(((df_old.index.asi8/(1e8)).round()*1e8).astype(np.int64)).values
-    df_old = df_old.set_index(new_index)
+    if ds_old.site.values != site:
+        return df
+    df_old = ds_old.to_dataframe()
+    t = df_old.index.levels[df_old.index.names.index('time')]
+    t_new = pd.DatetimeIndex(((t.asi8/(1e8)).round()*1e8).astype(np.int64)).values
+    df_old = df_old.set_index(t_new)
     df_old.index.name = 'time'
     for col in df_old.columns:
         if col not in df.columns:
@@ -46,8 +48,34 @@ def merge_partials(attrs, df, output_path):
     return df
 
 
+def merge_partial(ds, nc_path):
+    ds_old = xray.open_dataset(nc_path)
+    if ds.broadcast_equals(ds_old):  # if datasets contain the same data
+        return ds
+    p_no_match = ds.attrs['program'] != ds_old.attrs['program']
+    l_no_match = ds.attrs['logger'] != ds_old.attrs['logger']
+    if l_no_match or p_no_match: # if datasets don't have matching metadata
+        return ds
+    ind = xray.concat([ds_old.time, ds.time], dim='time')
+	use, index = np.unique(ind.values, return_index=True)
+	if len(ds_old.time) not in index:  # if all available data are in old
+		return ds
+	ds_new1 = ds.isel(time=[i for i in index if i<len(ds_old.time)])
+	ds_new2 = ds_old.isel(time=[i for i in index-len(ds_old.time) if i>=0])
+	if ds_new2.time[0].values < ds_new1.time[0].values:
+		ds_new = xray.concat((ds_new2,ds_new1), dim='time', mode='different')
+	else:
+		ds_new = xray.concat((ds_new1,ds_new2), dim='time', mode='different')
+	return ds_new
+
+
+def merge_soil():
+    return
+
+
 def run(DFList, input_dict, output_dir, attrs, site, coords_vals, **kwargs):
     '''Process .dat file and write daily netcdf files.'''
+    import time
     ncfilenames = t2n.get_ncnames(DFList)
     out_path = posixpath.join(output_dir, input_dict['datafile'])
     attrs, local_attrs = t2n.get_attrs(input_dict['header_file'], attrs)
@@ -55,20 +83,25 @@ def run(DFList, input_dict, output_dir, attrs, site, coords_vals, **kwargs):
     for i in range(len(DFList)):
         df = DFList[i]
         nc = ncfilenames[i]
-        output_path = posixpath.join(out_path, nc)
+        nc_path = posixpath.join(out_path, nc)
         if nc not in os.listdir(out_path):
             pass
-        elif i == 0 or i == len(DFList)-1:
-            try:
-                df = merge_partials(attrs, df, output_path)
-            except: pass
-        elif kwargs.get('rerun') is True:
+        elif input_dict['datafile'] == 'soil':
             pass
+        # only rerun files processed more than 12 hours ago
+        elif kwargs['rerun']:
+            if os.path.getmtime(nc_path) < time.time()-60*60*12:
+                pass
+        elif i == 0 or i == len(DFList)-1:
+            pass
+#            df = old_merge_partials(attrs, site, df, nc_path)
         else:
             continue
         ds = t2n.createDS(df, input_dict, attrs, local_attrs,
                           site, coords_vals)
-        ds.to_netcdf(path=output_path, mode='w', format='NETCDF3_64BIT')
+        if i == 0 or i == len(DFList)-1:
+            ds = merge_partial(ds, nc_path)
+        ds.to_netcdf(path=nc_path, mode='w', format='NETCDF3_64BIT')
     done_processing(input_dict, **kwargs)
 
 
