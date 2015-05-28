@@ -25,4 +25,4 @@ kwargs = dict(archive=False,
 from __init__ import *
 from find_files import get_files
 
-get_files(input_dir, output_dir, attrs, site, coords_vals, **kwargs)
+get_files(attrs, input_dir, output_dir, **kwargs)

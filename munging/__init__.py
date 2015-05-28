@@ -8,6 +8,7 @@ Julia Signell
 import os
 import shutil
 import sys
+import time
 import datetime as dt
 import posixpath
 import pandas as pd
@@ -18,7 +19,7 @@ import matplotlib.pyplot as plt
 
 
 datafiles = ['Table1', 'flux', 'Manifold', 'WVIA',
-             'lws', 'upper', 'ts_data']
+             'lws', 'upper', 'ts_data', 'soil']
 
 site=['MainTower']  # can be replaced if there are more specific sites
 
@@ -26,7 +27,7 @@ coords_vals = dict(
     lon=[36.8701],       # degrees east
     lat=[0.4856],        # degrees north
     elevation=[1610]     # m above see level
-    )
+)
 
 attrs = dict(
     title = 'Flux Tower Data from MPALA',

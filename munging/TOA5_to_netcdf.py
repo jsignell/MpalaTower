@@ -117,7 +117,6 @@ def get_coords(coords_vals):
     lon = coords_vals['lon']
     lat = coords_vals['lat']
     elevation = coords_vals['elevation']
-    
     coords = {
         'lon': (['site'], lon, dict(units='degrees east',
                                      standard_name='longitude',

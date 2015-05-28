@@ -50,13 +50,19 @@ def get_programmed_coords(program_content=None, serial=None):
             return coords
 
 
-def parse_program(output_dir, attrs, site, coords_vals):
+def parse_program(output_dir, attrs):
     if attrs['datafile'] == 'soil':
         program_content = get_program_local(attrs['program'], output_dir)
         serial = attrs['logger'].partition('_')[2]
-        coords_vals.update(get_programmed_coords(program_content, serial))
+        coords_vals = get_programmed_coords(program_content, serial)
+        for coords in coords_vals:
+            if type(coords_vals.get(coords)) != list:
+                coords_vals.update({coords: [coords_vals.get(coords)]})
         site = coords_vals.pop('site')
-    return site, coords_vals
+        return site, coords_vals
+    else:
+        from __init__ import site, coords_vals
+        return site, coords_vals
 
 
 def get_csi_info(program_content=None):
