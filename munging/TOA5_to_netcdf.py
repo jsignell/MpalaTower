@@ -35,6 +35,7 @@ def createDF(input_file, input_dict, attrs):
     df = df.apply(manage_dtypes)           # try to make all fields numeric
     df = df.tz_localize(attrs['local_timezone'])  # explain the local tz
     df = df.tz_convert('UTC')                  # convert df to UTC
+    df = df.drop_duplicates()
 
     # group dataframe by day of the year in UTC
     DFList = []

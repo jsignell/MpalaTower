@@ -15,7 +15,7 @@ if os.path.exists('.env'):
             os.environ[var[0]] = var[1]
 
 #input_dir = os.getenv('ARCHIVEDIR')
-input_dir = 'E:/'
+input_dir = os.getenv('DATADIR')
 output_dir = os.getenv('NETCDFDIR')
 
 kwargs = dict(archive=False,

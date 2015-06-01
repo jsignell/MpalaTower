@@ -38,6 +38,7 @@ def unzip(path, f):
     proper_path = posixpath.join(path, 'share')
     try:
         if os.path.isfile(posixpath.join(path, 'share', f)):
+            print proper_path, f
             return proper_path, f
         else:
             archive.extract(posixpath.join('share', f), path)
@@ -66,10 +67,14 @@ def has_header(input_dict):
         header_file = posixpath.join(input_dict['path'], 'header.txt')
         if os.path.isfile(header_file):
             pass
-        elif input_dict['datafile'] == 'ts_data':
-            header_file = posixpath.join(TSDIR, 'header.txt')
+        elif input_dict['datafile'] is 'ts_data':
+            try: 
+                TSDIR = os.getenv('TSDIR')
+                header_file = posixpath.join(TSDIR, 'header.txt')
+            except:
+                print 'cannot find header in TSDIR'
         else:
-            print('couldn\'t find header file')
+            print('cannot find header file')
             header_file = None
         return input_dict.update({'has_header': False,
                                   'header_file': header_file})
@@ -104,6 +109,7 @@ def rangle(path, f, d, k):
                    'datafile': d})
     has_header(input_dict)
     big = 210000000
+
     if os.stat(posixpath.join(path, f)).st_size >= big:
         k, input_dict = split_file(k, input_dict)
     return k, input_dict
@@ -121,7 +127,7 @@ def get_files(attrs, input_dir, output_dir, **kwargs):
         if kwargs.get('rerun') is True:
             fresh_processed(path)
         for f in files:
-            if f.startswith('.') == True:
+            if f.startswith('.'):
                 continue
             if kwargs.get('archive') is True and kwargs.get('rerun') is False:
                 if already_processed(path, f) is True:
@@ -131,7 +137,7 @@ def get_files(attrs, input_dir, output_dir, **kwargs):
                     try:
                         k, input_dict = rangle(path, f, d, k)
                     except:
-                        print('could not rangle {path}{f}'.format(path=path, f=f))
+                        print('could not rangle {path}/{f}'.format(path=path, f=f))
                         continue
                     if kwargs.get('run_as_we_go') is True:
                         if 'splits' in input_dict.keys():

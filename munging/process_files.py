@@ -33,13 +33,13 @@ def old_merge_partials(attrs, site, df, nc_path):
 def try_run(i, DFList, input_dict, nc_path, **kwargs):
     if not os.path.exists(nc_path):
         return True
-    if input_dict['datafile'] == 'soil':
+    if input_dict['datafile'] is 'soil':
         return True
     # only rerun files processed more than 12 hours ago
     old_file = os.path.getmtime(nc_path) < time.time()-60*60*12
     if kwargs['rerun'] and old_file is True:
         return True
-    if i == 0 or i == len(DFList)-1 and old_file is False:
+    if i in (0, len(DFList)-1) and old_file is False:
         return True
     return False
 
@@ -49,28 +49,32 @@ def merge_partial(ds, nc_path, merge_old=False):
     # if old dataset was run more than a week ago
     old_file = os.path.getmtime(nc_path) < time.time()-60*60*24*7
     if merge_old is False and old_file is True:
+        print 'old dataset was run more than a week ago'
         return None
     # if datasets contain the same data
     ds_old = xray.open_dataset(nc_path)
     if ds.broadcast_equals(ds_old):
+        print 'datasets containt the same data'
         return None
     # if datasets don't have matching metadata
     p_no_match = ds.attrs['program'] != ds_old.attrs['program']
     l_no_match = ds.attrs['logger'] != ds_old.attrs['logger']
     if l_no_match or p_no_match:
+        print ' datasets don\'t have matching metadata'
         return None
     # if datasets don't occur at the same site
-    place = [c for c in ds.coords.keys() if c != 'time']
-    for c in place:
-        if ds[c] != ds_old[c]:
+    if ds['site'] != ds_old['site']:
+            print ds['site'], ds_old['site']
+            print 'datasets don\'t occur at the same site'
             return None
     ind = xray.concat([ds_old.time, ds.time], dim='time')
     use, index = np.unique(ind.values, return_index=True)
     # if all available data are in the old dataset
     if len(ds_old.time) not in index:
+        print 'all available data are in the old dataset'
         return None
-    ds_new1 = ds.isel(time=[i for i in index if i < len(ds_old.time)])
-    ds_new2 = ds_old.isel(time=[i for i in index-len(ds_old.time) if i >= 0])
+    ds_new1 = ds_old.isel(time=[i for i in index if i < len(ds_old.time)])
+    ds_new2 = ds.isel(time=[i for i in index-len(ds_old.time) if i >= 0])
     if ds_new2.time[0].values < ds_new1.time[0].values:
         ds_new = xray.concat((ds_new2, ds_new1), dim='time',
                              mode='different')
@@ -109,7 +113,6 @@ def done_processing(input_dict, **kwargs):
         return
     processed = open(processed_file, 'a')
     processed.write(input_dict['filename']+'\n')
-    print('done processing', input_dict['filename'])
     return
 
 
@@ -124,20 +127,26 @@ def run(DFList, input_dict, output_dir, attrs, **kwargs):
         df = DFList[i]
         nc = ncfilenames[i]
         nc_path = posixpath.join(out_path, nc)
+        print nc_path
         if not try_run(i, DFList, input_dict, nc_path, **kwargs):
             continue
+        print 'gonna run'
         ds = t2n.createDS(df, input_dict, attrs, local_attrs,
                           site, coords_vals)
-        if input_dict['datafile'] == 'soil' and os.path.exists(nc_path):
+        input_dict.update({'ds': ds})
+        if input_dict['datafile'] is 'soil' and os.path.exists(nc_path):
             ds = merge_sites(ds, nc_path)
         elif i in (0, len(DFList)-1) and os.path.exists(nc_path):
+            print 'gonna merge'
             ds = merge_partial(ds, nc_path)
         if ds is None:
+            print 'got ds = None'
             continue
         ds.to_netcdf(path=nc_path, mode='w', format='NETCDF3_64BIT')
-    print input_dict['filename']
     coords_vals = None
-    done_processing(input_dict, **kwargs)
+    if ncfilenames in os.listdir(out_path):
+        print 'done with', input_dict['filename']
+        done_processing(input_dict, **kwargs)
 
 
 def run_splits(input_dict, output_dir, attrs, **kwargs):
