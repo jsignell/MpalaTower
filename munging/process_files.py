@@ -10,26 +10,6 @@ import TOA5_to_netcdf as t2n
 from parse_campbellsci import parse_program
 
 
-def old_merge_partials(attrs, site, df, nc_path):
-    ds_old = xray.open_dataset(nc_path)
-    if ds_old.attrs['program'] != attrs['program']:
-        return df
-    if ds_old.site.values != site:
-        return df
-    df_old = ds_old.to_dataframe()
-    t = df_old.index.levels[df_old.index.names.index('time')]
-    t_new = pd.DatetimeIndex(((t.asi8/(1e8)).round()*1e8).astype(np.int64)).values
-    df_old = df_old.set_index(t_new)
-    df_old.index.name = 'time'
-    for col in df_old.columns:
-        if col not in df.columns:
-            df_old.pop(col)
-    df = df_old.append(df)
-    df.sort(axis=1, inplace=True)
-    df.drop_duplicates(subset=('RECORD'), inplace=True)
-    return df
-
-
 def try_run(i, DFList, input_dict, nc_path, **kwargs):
     if not os.path.exists(nc_path):
         return True
@@ -44,17 +24,21 @@ def try_run(i, DFList, input_dict, nc_path, **kwargs):
     return False
 
 
-def merge_partial(ds, nc_path, merge_old=False):
+def merge_partial(ds, nc_path, merge_old=False, **kwargs):
     '''If a file already exists, try to knit the files together'''
     # if old dataset was run more than a week ago
     old_file = os.path.getmtime(nc_path) < time.time()-60*60*24*7
     if merge_old is False and old_file is True:
-        print 'old dataset was run more than a week ago'
-        return None
+        print 'old dataset was run more than a week ago..'
+        if kwargs['rerun'] is False:
+            return None
+        else:
+            print 'overwriting old dataset'
+            return ds
     # if datasets contain the same data
     ds_old = xray.open_dataset(nc_path)
     if ds.broadcast_equals(ds_old):
-        print 'datasets containt the same data'
+        print 'datasets contains the same data'
         return None
     # if datasets don't have matching metadata
     p_no_match = ds.attrs['program'] != ds_old.attrs['program']
@@ -138,7 +122,7 @@ def run(DFList, input_dict, output_dir, attrs, **kwargs):
             ds = merge_sites(ds, nc_path)
         elif i in (0, len(DFList)-1) and os.path.exists(nc_path):
             print 'gonna merge'
-            ds = merge_partial(ds, nc_path)
+            ds = merge_partial(ds, nc_path, **kwargs)
         if ds is None:
             print 'got ds = None'
             continue
