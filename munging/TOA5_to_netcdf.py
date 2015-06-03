@@ -35,6 +35,7 @@ def createDF(input_file, input_dict, attrs):
     df = df.apply(manage_dtypes)           # try to make all fields numeric
     df = df.tz_localize(attrs['local_timezone'])  # explain the local tz
     df = df.tz_convert('UTC')                  # convert df to UTC
+    df = df.drop_duplicates()
 
     # group dataframe by day of the year in UTC
     DFList = []
@@ -141,6 +142,8 @@ def make_MultiIndex(df, site):
 
 def createDS(df, input_dict, attrs, local_attrs, site, coords_vals):
     '''Create an xray.Dataset object from dataframe and dicts of parts'''        
+    if input_dict['datafile'] is 'soil':
+        df = df.resample('10min')
     try:
         df = make_MultiIndex(df, site)
         ds = xray.Dataset.from_dataframe(df)

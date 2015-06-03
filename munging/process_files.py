@@ -43,7 +43,8 @@ def merge_partial(ds, nc_path, merge_old=False, **kwargs):
     # if datasets don't have matching metadata
     p_no_match = ds.attrs['program'] != ds_old.attrs['program']
     l_no_match = ds.attrs['logger'] != ds_old.attrs['logger']
-    if l_no_match or p_no_match:
+    var_no_match = ds.data_vars.keys() != ds_old.data_vars.keys()
+    if l_no_match or p_no_match or var_no_match:
         print ' datasets don\'t have matching metadata'
         return None
     # if datasets don't occur at the same site
@@ -78,7 +79,11 @@ def merge_sites(ds, nc_path):
     ind = np.unique(xray.concat([ds0.time, ds1.time], dim='time').values)
     ds0 = ds0.reindex({'time': ind}, copy=False)
     ds1 = ds1.reindex({'time': ind}, copy=False)
-    ds = xray.auto_combine(datasets=(ds0, ds1), concat_dim='site')
+    print ds1.RECORD
+    try:
+        ds = xray.auto_combine(datasets=(ds0, ds1), concat_dim='site')
+    except:
+        ds = None        
     return ds
 
 
