@@ -35,7 +35,6 @@ def createDF(input_file, input_dict, attrs):
     df = df.apply(manage_dtypes)           # try to make all fields numeric
     df = df.tz_localize(attrs['local_timezone'])  # explain the local tz
     df = df.tz_convert('UTC')                  # convert df to UTC
-    df = df.drop_duplicates()
 
     # group dataframe by day of the year in UTC
     DFList = []
@@ -142,8 +141,14 @@ def make_MultiIndex(df, site):
 
 def createDS(df, input_dict, attrs, local_attrs, site, coords_vals):
     '''Create an xray.Dataset object from dataframe and dicts of parts'''        
-    df = make_MultiIndex(df, site)
-    ds = xray.Dataset.from_dataframe(df)    
+    try:
+        df = make_MultiIndex(df, site)
+        ds = xray.Dataset.from_dataframe(df)
+    except:
+        ds = None
+        print 'contains non-identical overlapping data --> throw away'
+        print 'dataset is None'
+        return ds
     ds.attrs.update(attrs)
     ds.coords.update(get_coords(coords_vals))
     for name in ds.data_vars.keys():

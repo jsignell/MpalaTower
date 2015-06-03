@@ -117,12 +117,12 @@ def run(DFList, input_dict, output_dir, attrs, **kwargs):
         print 'gonna run'
         ds = t2n.createDS(df, input_dict, attrs, local_attrs,
                           site, coords_vals)
-        input_dict.update({'ds': ds})
-        if input_dict['datafile'] is 'soil' and os.path.exists(nc_path):
-            ds = merge_sites(ds, nc_path)
-        elif i in (0, len(DFList)-1) and os.path.exists(nc_path):
-            print 'gonna merge'
-            ds = merge_partial(ds, nc_path, **kwargs)
+        if ds is not None:
+            if input_dict['datafile'] is 'soil' and os.path.exists(nc_path):
+                ds = merge_sites(ds, nc_path)
+            elif i in (0, len(DFList)-1) and os.path.exists(nc_path):
+                print 'gonna merge'
+                ds = merge_partial(ds, nc_path, **kwargs)
         if ds is None:
             print 'got ds = None'
             continue
