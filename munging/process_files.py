@@ -25,8 +25,7 @@ def try_run(i, DFList, input_dict, nc_path, **kwargs):
 
 
 def merge_partial(ds, nc_path, merge_old=False, **kwargs):
-    '''If a file already exists, try to knit the files together'''
-    # if old dataset was run more than a week ago
+    '''If a file already exists, try to knit the files together.'''
     old_file = os.path.getmtime(nc_path) < time.time()-60*60*24*7
     if merge_old is False and old_file is True:
         print 'old dataset was run more than a week ago..'
@@ -35,26 +34,26 @@ def merge_partial(ds, nc_path, merge_old=False, **kwargs):
         else:
             print 'overwriting old dataset'
             return ds
-    # if datasets contain the same data
     ds_old = xray.open_dataset(nc_path)
     if ds.broadcast_equals(ds_old):
         print 'datasets contains the same data'
         return None
-    # if datasets don't have matching metadata
     p_no_match = ds.attrs['program'] != ds_old.attrs['program']
     l_no_match = ds.attrs['logger'] != ds_old.attrs['logger']
-    var_no_match = ds.data_vars.keys() != ds_old.data_vars.keys()
-    if l_no_match or p_no_match or var_no_match:
-        print ' datasets don\'t have matching metadata'
+    if l_no_match or p_no_match:
+        print 'datasets don\'t have matching metadata'
         return None
-    # if datasets don't occur at the same site
+    v_old, v = ds_old.data_vars.keys(), ds.data_vars.keys()
+    v_old.sort(), v.sort()
+    if v_old != v:
+        print 'datasets don\'t have the same variables'
+        return None
     if ds['site'] != ds_old['site']:
             print ds['site'], ds_old['site']
             print 'datasets don\'t occur at the same site'
             return None
     ind = xray.concat([ds_old.time, ds.time], dim='time')
     use, index = np.unique(ind.values, return_index=True)
-    # if all available data are in the old dataset
     if len(ds_old.time) not in index:
         print 'all available data are in the old dataset'
         return None
@@ -88,13 +87,12 @@ def merge_sites(ds, nc_path):
 
 
 def done_processing(input_dict, **kwargs):
-    if 'ts_data' in input_dict['filename']:
+    if input_dict['datafile'] is 'ts_data':
         os.remove(posixpath.join(input_dict['path'], input_dict['filename']))
         start = ''
         for i in input_dict['path'].split('/')[0:-1]:
             start = posixpath.join(start, i)
         processed_file = posixpath.join(start, 'processed2netCDF.txt')
-
     elif kwargs.get('archive') is True:
         processed_file = posixpath.join(input_dict['path'],
                                         'processed2netCDF.txt')

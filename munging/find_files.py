@@ -124,14 +124,15 @@ def get_files(attrs, input_dir, output_dir, **kwargs):
         k = 0
         path = path.replace('\\', '/')
         print(path)
-        if kwargs.get('rerun') is True:
+        if kwargs['rerun'] is True:
             fresh_processed(path)
         for f in files:
             if f.startswith('.'):
                 continue
-            if kwargs.get('archive') is True and kwargs.get('rerun') is False:
-                if already_processed(path, f) is True:
-                    continue
+            if kwargs['rerun'] is False:
+                if kwargs['archive'] is True or 'ts_data' in f:
+                    if already_processed(path, f) is True:
+                        continue
             for d in datafiles:
                 if d in f and '.dat' in f:
                     try:
@@ -139,7 +140,7 @@ def get_files(attrs, input_dir, output_dir, **kwargs):
                     except:
                         print('could not rangle {path}/{f}'.format(path=path, f=f))
                         continue
-                    if kwargs.get('run_as_we_go') is True:
+                    if kwargs['run_as_we_go'] is True:
                         if 'splits' in input_dict.keys():
                             run_splits(input_dict, output_dir, attrs,
                                        **kwargs)
