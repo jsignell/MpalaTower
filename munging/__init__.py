@@ -13,7 +13,7 @@ import datetime as dt
 import posixpath
 import pandas as pd
 import numpy as np
-import xray
+import xarray as xr
 import zipfile
 import matplotlib.pyplot as plt
 

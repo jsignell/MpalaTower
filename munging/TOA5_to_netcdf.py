@@ -141,12 +141,12 @@ def make_MultiIndex(df, site):
 
 
 def createDS(df, input_dict, attrs, local_attrs, site, coords_vals):
-    '''Create an xray.Dataset object from dataframe and dicts of parts'''        
+    '''Create an xr.Dataset object from dataframe and dicts of parts'''        
     if input_dict['datafile'] is 'soil':
         df = df.resample('10min')
     try:
         df = make_MultiIndex(df, site)
-        ds = xray.Dataset.from_dataframe(df)
+        ds = xr.Dataset.from_dataframe(df)
     except:
         ds = None
         print 'contains non-identical overlapping data --> throw away'

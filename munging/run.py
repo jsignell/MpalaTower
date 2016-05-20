@@ -16,10 +16,12 @@ if os.path.exists('.env'):
 
 #input_dir = os.getenv('ARCHIVEDIR')
 input_dir = os.getenv('DATADIR')
+print input_dir
+print type(input_dir)
 output_dir = os.getenv('NETCDFDIR')
 
 kwargs = dict(archive=False,
-              rerun=True,
+              rerun=False,
               run_as_we_go=True)
 
 from __init__ import *

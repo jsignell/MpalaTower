@@ -34,7 +34,7 @@ def merge_partial(ds, nc_path, merge_old=False, **kwargs):
         else:
             print 'overwriting old dataset'
             return ds
-    ds_old = xray.open_dataset(nc_path)
+    ds_old = xr.open_dataset(nc_path)
     if ds.broadcast_equals(ds_old):
         print 'datasets contains the same data'
         return None
@@ -52,7 +52,7 @@ def merge_partial(ds, nc_path, merge_old=False, **kwargs):
             print ds['site'], ds_old['site']
             print 'datasets don\'t occur at the same site'
             return None
-    ind = xray.concat([ds_old.time, ds.time], dim='time')
+    ind = xr.concat([ds_old.time, ds.time], dim='time')
     use, index = np.unique(ind.values, return_index=True)
     if len(ds_old.time) not in index:
         print 'all available data are in the old dataset'
@@ -60,27 +60,30 @@ def merge_partial(ds, nc_path, merge_old=False, **kwargs):
     ds_new1 = ds_old.isel(time=[i for i in index if i < len(ds_old.time)])
     ds_new2 = ds.isel(time=[i for i in index-len(ds_old.time) if i >= 0])
     if ds_new2.time[0].values < ds_new1.time[0].values:
-        ds_new = xray.concat((ds_new2, ds_new1), dim='time',
+        ds_new = xr.concat((ds_new2, ds_new1), dim='time',
                              mode='different')
     else:
-        ds_new = xray.concat((ds_new1, ds_new2), dim='time',
+        ds_new = xr.concat((ds_new1, ds_new2), dim='time',
                              mode='different')
     return ds_new
 
 
 def merge_sites(ds, nc_path):
     '''Merge variables from different sites contained in separate files.'''
-    ds0 = xray.open_dataset(nc_path)
+    ds0 = xr.open_dataset(nc_path)
+    ds0.load()
     ds1 = ds
+    ds1.load()
     if ds1.site.values in ds0.site.values:
         ds = None
         return ds
-    ind = np.unique(xray.concat([ds0.time, ds1.time], dim='time').values)
-    ds0 = ds0.reindex({'time': ind}, copy=False)
-    ds1 = ds1.reindex({'time': ind}, copy=False)
+    #ind = np.unique(xr.concat([ds0.time, ds1.time], dim='time'))
+    #ds0 = ds0.reindex({'time': ind}, copy=False)
+    #ds1 = ds1.reindex({'time': ind}, copy=False)
+    
     print ds1.RECORD
     try:
-        ds = xray.auto_combine(datasets=(ds0, ds1), concat_dim='site')
+        ds = xr.auto_combine(datasets=(ds0, ds1), concat_dim='site')
     except:
         ds = None        
     return ds
@@ -129,7 +132,7 @@ def run(DFList, input_dict, output_dir, attrs, **kwargs):
         if ds is None:
             print 'got ds = None'
             continue
-        ds.to_netcdf(path=nc_path, mode='w', format='NETCDF3_64BIT')
+        ds.to_netcdf(path=nc_path, mode='w') #, format='NETCDF3_64BIT')
     coords_vals = None
     if ncfilenames in os.listdir(out_path):
         print 'done with', input_dict['filename']
